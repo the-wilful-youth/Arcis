@@ -1,87 +1,126 @@
-# Arcis — ML Phishing URL Detector
+# Arcis — SaaS Phishing Detection Suite
 
-Arcis is a real-time, explainable phishing URL detection system built using a pre-trained and tuned **LightGBM** classifier. It features a local REST API backend, a premium glassmorphic web dashboard, and a Manifest V3 Google Chrome extension.
+Arcis is a real-time, explainable threat intelligence and phishing URL detection system. Powered by a custom-tuned **LightGBM Classifier**, Arcis translates complex network and lexical telemetry into human-readable risk assessments. 
 
-## Features
-
-- **Lexical Parsing**: Analyzes character ratios, length metrics, path segments, and parameter structures.
-- **Live DNS & Network Reputation**: Resolves active IPs, MX servers, Nameservers, and connection response latency.
-- **Autonomous IP-to-ASN Translation**: Executes local DNS TXT lookups against the Cymru DNS network to resolve Autonomous System Numbers (ASN) with zero HTTP API overhead.
-- **Domain Registry Age Verification**: Queries WHOIS records to check the domain registration creation age and days remaining until expiration.
-- **Local Explainability**: Computes directional feature contributions to show why a link was flagged.
+The suite comprises a local Flask REST API backend, a premium glassmorphic web dashboard, and a Manifest V3 Google Chrome extension.
 
 ---
 
-## Repository Structure
+## 🚀 Key Features
+
+*   **Lexical Telemetry Extraction**: Analyzes character distributions, suspicious keywords, folder depth, query parameters, and domain structure.
+*   **Live DNS & Reputation Verification**: Resolves active IPv4 addresses, MX servers, and Nameservers with real-time response latency checks.
+*   **Autonomous IP-to-ASN Translation**: Executes local DNS TXT lookups against the Cymru DNS network to resolve Autonomous System Numbers (ASN) with zero HTTP API overhead.
+*   **WHOIS Registry Verifier**: Parses creation times and days remaining until expiration to detect newly registered domains typical of phishing campaigns.
+*   **Explainable ML Verdicts**: Employs directional feature analysis to pinpoint precisely which features influenced a domain's threat classification.
+
+---
+
+## 📁 Repository Structure
+
+Following a recent de-duplication pass, the codebase is structured cleanly into logical backend, frontend, and extension components:
 
 ```
 Arcis/
 ├── backend/
-│   ├── app.py                      # Flask REST API server
-│   ├── models/                     # Saved ML model binaries
-│   │   └── url_phishing_bundle.joblib
-│   └── services/                   # Feature extraction & classification services
-│       ├── url_classifier.py       # URL feature extraction & LightGBM model logic
-│       └── email_classifier.py     # Email classification template (for your model)
+│   ├── app.py                      # Flask REST API server (Rate-limited, CORS-enabled)
+│   ├── models/
+│   │   └── url_phishing_bundle.joblib # LightGBM classifier binary
+│   ├── services/
+│   │   ├── url_classifier.py       # Feature extraction & classification service
+│   │   └── email_classifier.py     # Email classification templates
+│   └── test_phishing.py            # Local backend verification test suite
 ├── frontend/
-│   ├── index.html                  # Premium SaaS Dashboard
-│   ├── style.css                   # Glassmorphic style sheet
-│   └── app.js                      # Web app integration logic
-├── extension/                      # Manifest V3 Chrome Extension
+│   ├── index.html                  # Premium glassmorphic dashboard UI
+│   ├── style.css                   # Dynamic stylesheet with floating background glows
+│   └── app.js                      # Integration script & history state management
+├── extension/                      # Manifest V3 Google Chrome Extension
 │   ├── manifest.json
 │   ├── popup.html
 │   ├── popup.css
 │   ├── popup.js
 │   └── background.js
-├── requirements.txt
-├── README.md
-└── .gitignore
+├── requirements.txt                # Python backend dependencies
+└── README.md
 ```
 
 ---
 
-## Installation & Setup
+## 🛠️ Installation & Setup
 
-### Prerequisites
-- **Python 3.11** or **Python 3.10**
-- Google Chrome (or any Chromium-based browser)
+### 1. Initialize the Environment & Install Dependencies
 
-### 1. Initialize Virtual Environment & Install Dependencies
-Run the following commands in your workspace:
+Run the following commands from your project root:
 
 ```bash
 # Create a virtual environment
-python3.11 -m venv .venv
+python3 -m venv .venv
 
 # Activate the virtual environment
-source .venv/bin/activate
+source .venv/bin/activate  # On Windows, use `.venv\Scripts\activate`
 
-# Install required dependencies
+# Install required packages
 pip install -r requirements.txt
 ```
 
 ### 2. Run the Backend API Server
 
-**For Development:**
+Start the API server on its default port (`5001`):
+
 ```bash
+# Activate virtual environment if not already active
+source .venv/bin/activate
+
+# Start the Flask API
 python backend/app.py
 ```
 
-**For Production (High Concurrency & Load):**
-Use Gunicorn with multi-worker threads to handle a high volume of users concurrently:
+*For production workloads, consider using **Gunicorn** to handle concurrent operations:*
 ```bash
 gunicorn -w 4 -b 0.0.0.0:5001 --chdir backend app:app
 ```
-The API server exposes:
-- `/api/analyze/url` (`POST`) for URL phishing scans.
-- `/api/analyze/email` (`POST`) for email sender security checks.
 
-### 3. Open the Web Application
-Open the [index.html](file:///Users/Anurag/Anurag/Projects/Arcis/frontend/index.html) file inside the `frontend/` folder directly in any browser.
+### 3. Running Backend Tests
 
-### 4. Load the Chrome Browser Extension
-1. Open Google Chrome and navigate to `chrome://extensions/`.
-2. Enable **Developer mode** in the top-right corner.
-3. Click the **Load unpacked** button in the top-left corner.
-4. Select the `extension` folder inside this directory.
-5. Pin the **Arcis Phishing Detector** extension, navigate to any site, and click the shield icon to analyze the page in one click.
+Verify that feature extraction and classification pipelines are working:
+
+```bash
+.venv/bin/python backend/test_phishing.py
+```
+
+### 4. Launch the Web Application
+
+Simply open the [index.html](file:///Users/Anurag/Anurag/Projects/Arcis/frontend/index.html) file located in the `frontend/` directory directly in any modern browser.
+
+### 5. Install the Chrome Extension
+
+1. Navigate to `chrome://extensions/` in your Chrome browser.
+2. Enable **Developer mode** using the toggle in the top-right corner.
+3. Click **Load unpacked** in the top-left corner.
+4. Select the `extension/` directory of this project.
+5. Pin the **Arcis Phishing Detector** extension, and analyze active tabs on demand.
+
+---
+
+## 🔌 API Documentation
+
+### Analyze URL
+* **Endpoint**: `/api/analyze/url`
+* **Method**: `POST`
+* **Content-Type**: `application/json`
+* **Payload**:
+  ```json
+  { "url": "https://example.com" }
+  ```
+* **Response**:
+  ```json
+  {
+    "url": "https://example.com",
+    "is_phishing": false,
+    "risk_score_pct": 0.98,
+    "features": { ... },
+    "top_features": [
+      { "feature": "time_domain_activation", "value": 1024, "direction": "decreases" }
+    ]
+  }
+  ```
