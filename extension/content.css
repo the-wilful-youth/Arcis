@@ -1,0 +1,439 @@
+/* ============================================================
+   Arcis Gmail Widget — content.css
+   All selectors are namespaced under #arcis-widget-root
+   to avoid leaking into Gmail's own styles.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap');
+
+/* ── Root container ─────────────────────────────────────── */
+#arcis-widget-root {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column-reverse;   /* avatar is always bottom */
+  align-items: flex-start;
+  gap: 10px;
+  font-family: 'Inter', system-ui, sans-serif;
+  pointer-events: none;             /* clicks pass-through until avatar/panel */
+}
+
+/* ── Avatar bubble ──────────────────────────────────────── */
+#arcis-avatar {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  background: radial-gradient(circle at 40% 40%, #3f3f46, #18181b);
+  border-radius: 50%;
+  cursor: pointer;
+  pointer-events: all;
+  box-shadow:
+    0 0 0 2px rgba(163, 230, 53, 0.3),
+    0 8px 32px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.1);
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1),
+              box-shadow 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+#arcis-avatar:hover {
+  transform: scale(1.1) translateY(-2px);
+  box-shadow:
+    0 0 0 3px rgba(163,230,53,0.5),
+    0 12px 40px rgba(0,0,0,0.7),
+    inset 0 1px 0 rgba(255,255,255,0.15);
+}
+
+#arcis-avatar:active {
+  transform: scale(0.97);
+}
+
+#arcis-spider-svg {
+  width: 52px;
+  height: 52px;
+  overflow: visible;
+}
+
+/* Pulse ring */
+#arcis-pulse {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(163,230,53,0.5);
+  animation: arcis-pulse-ring 2.5s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes arcis-pulse-ring {
+  0%   { transform: scale(1);   opacity: 0.7; }
+  70%  { transform: scale(1.4); opacity: 0;   }
+  100% { transform: scale(1.4); opacity: 0;   }
+}
+
+/* ── Expanded panel ─────────────────────────────────────── */
+#arcis-panel {
+  width: 300px;
+  background: linear-gradient(160deg, #0f1117 0%, #18181b 60%, #0f1117 100%);
+  border: 1px solid rgba(163,230,53,0.18);
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 24px 60px rgba(0,0,0,0.85),
+    0 0 40px rgba(163,230,53,0.06);
+  overflow: hidden;
+  pointer-events: all;
+  /* Hidden by default */
+  opacity: 0;
+  transform: translateY(12px) scale(0.95);
+  transform-origin: bottom left;
+  transition:
+    opacity 0.35s cubic-bezier(0.34,1.56,0.64,1),
+    transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  pointer-events: none;
+}
+
+/* Visible when expanded */
+#arcis-widget-root.arcis-expanded #arcis-panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: all;
+}
+
+/* ── Panel Header ────────────────────────────────────────── */
+#arcis-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: linear-gradient(180deg, rgba(163,230,53,0.05) 0%, transparent 100%);
+}
+
+#arcis-panel-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#arcis-panel-brand > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+#arcis-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #f4f4f5;
+  letter-spacing: 0.03em;
+}
+
+#arcis-subtitle {
+  font-size: 10px;
+  color: #71717a;
+  letter-spacing: 0.04em;
+}
+
+#arcis-close-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: #71717a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  padding: 0;
+}
+
+#arcis-close-btn:hover {
+  background: rgba(239,68,68,0.15);
+  color: #ef4444;
+  border-color: rgba(239,68,68,0.3);
+}
+
+/* ── States ─────────────────────────────────────────────── */
+.arcis-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 18px 16px;
+  gap: 14px;
+  animation: arcis-fade-in 0.3s ease-out;
+}
+
+@keyframes arcis-fade-in {
+  from { opacity:0; transform:translateY(6px); }
+  to   { opacity:1; transform:translateY(0);   }
+}
+
+/* ── Idle State ──────────────────────────────────────────── */
+#arcis-idle-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(163,230,53,0.08) 0%, transparent 70%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgba(163,230,53,0.1);
+}
+
+#arcis-idle-text {
+  font-size: 12.5px;
+  color: #a1a1aa;
+  text-align: center;
+  line-height: 1.5;
+  max-width: 220px;
+}
+
+.arcis-hint {
+  font-size: 11.5px;
+  color: #f59e0b;
+  text-align: center;
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.arcis-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 20px;
+  border-radius: 50px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.18s, opacity 0.18s, box-shadow 0.18s;
+  letter-spacing: 0.01em;
+}
+
+.arcis-btn--primary {
+  background: linear-gradient(135deg, #a3e635 0%, #84cc16 100%);
+  color: #0f1117;
+  box-shadow: 0 4px 16px rgba(163,230,53,0.3);
+}
+
+.arcis-btn--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(163,230,53,0.45);
+}
+
+.arcis-btn--primary:active {
+  transform: scale(0.97);
+}
+
+.arcis-btn--ghost {
+  background: rgba(255,255,255,0.05);
+  color: #a1a1aa;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.arcis-btn--ghost:hover {
+  background: rgba(255,255,255,0.09);
+  color: #e4e4e7;
+}
+
+/* ── Scanning State ──────────────────────────────────────── */
+#arcis-spider-scan-anim {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.arcis-scan-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(163,230,53,0.5);
+  animation: arcis-scan-expand 2s ease-out infinite;
+}
+
+.arcis-ring1 { width: 56px; height: 56px; animation-delay: 0s;    }
+.arcis-ring2 { width: 70px; height: 70px; animation-delay: 0.5s;  }
+.arcis-ring3 { width: 80px; height: 80px; animation-delay: 1s;    }
+
+@keyframes arcis-scan-expand {
+  0%   { transform:scale(0.6); opacity:0.8; }
+  100% { transform:scale(1.2); opacity:0;   }
+}
+
+.arcis-scanning-label {
+  font-size: 13px;
+  color: #a3e635;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+#arcis-scan-dots {
+  display: flex;
+  gap: 5px;
+}
+
+#arcis-scan-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(163,230,53,0.6);
+  animation: arcis-dot-bounce 1.2s ease-in-out infinite;
+}
+
+#arcis-scan-dots span:nth-child(2) { animation-delay: 0.2s; }
+#arcis-scan-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes arcis-dot-bounce {
+  0%,100% { transform:translateY(0);   opacity:0.4; }
+  50%      { transform:translateY(-6px); opacity:1;   }
+}
+
+/* ── Result State ────────────────────────────────────────── */
+#arcis-verdict-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 50px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+#arcis-verdict-badge.arcis-safe {
+  background: rgba(16,185,129,0.12);
+  border: 1px solid rgba(16,185,129,0.35);
+  color: #34d399;
+}
+#arcis-verdict-badge.arcis-warn {
+  background: rgba(245,158,11,0.12);
+  border: 1px solid rgba(245,158,11,0.35);
+  color: #fbbf24;
+}
+#arcis-verdict-badge.arcis-danger {
+  background: rgba(239,68,68,0.12);
+  border: 1px solid rgba(239,68,68,0.4);
+  color: #f87171;
+}
+
+#arcis-verdict-icon { font-size: 16px; }
+
+/* Risk bar */
+#arcis-risk-bar-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+#arcis-risk-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+#arcis-risk-fill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.8s cubic-bezier(0.25,1,0.5,1);
+}
+
+#arcis-risk-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #71717a;
+}
+
+#arcis-risk-pct { font-weight: 600; color: #a1a1aa; }
+
+/* Findings */
+#arcis-findings-box {
+  width: 100%;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  padding: 11px 13px;
+}
+
+.arcis-findings-title {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+
+#arcis-findings-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+#arcis-findings-list li {
+  font-size: 11.5px;
+  color: #d4d4d8;
+  line-height: 1.45;
+  padding-left: 13px;
+  position: relative;
+}
+
+#arcis-findings-list li::before {
+  content: '›';
+  position: absolute;
+  left: 0;
+  color: #a3e635;
+  font-weight: 700;
+}
+
+/* More info link */
+#arcis-more-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: #a3e635;
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+  border-bottom: 1px dotted rgba(163,230,53,0.4);
+  padding-bottom: 1px;
+}
+#arcis-more-link:hover { opacity: 1; }
+
+/* ── Footer ──────────────────────────────────────────────── */
+#arcis-panel-footer {
+  text-align: center;
+  font-size: 10px;
+  color: #3f3f46;
+  padding: 8px 14px 12px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  letter-spacing: 0.02em;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────── */
+#arcis-findings-list::-webkit-scrollbar { width: 4px; }
+#arcis-findings-list::-webkit-scrollbar-track { background: transparent; }
+#arcis-findings-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
