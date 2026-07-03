@@ -117,7 +117,7 @@ class DomainResolverCache:
                 "data": data
             }
 
-domain_cache = DomainResolverCache(ttl_seconds=3600)  # 1 hour cache
+domain_cache = DomainResolverCache(ttl_seconds=86400)  # 24 hours cache
 
 def get_asn(ip):
     """Retrieve ASN using Cymru DNS TXT record lookup."""
@@ -136,8 +136,20 @@ def get_asn(ip):
         pass
     return -1
 
+import ipaddress
+
+def is_private_ip(hostname):
+    try:
+        ip_str = socket.gethostbyname(hostname)
+        ip = ipaddress.ip_address(ip_str)
+        return ip.is_private or ip.is_loopback or ip.is_link_local
+    except Exception:
+        return True
+
 # --- Concurrent Lookups ---
 def lookup_response_time(hostname):
+    if is_private_ip(hostname):
+        return -1.0
     t0 = time.time()
     try:
         s = socket.create_connection((hostname, 80), timeout=1.0)
@@ -151,13 +163,16 @@ def lookup_dns_a(hostname):
     try:
         answers = dns.resolver.resolve(hostname, 'A')
         ips = [ip.address for ip in answers]
+        resolved_ip = ips[0] if ips else None
+        asn = get_asn(resolved_ip) if resolved_ip else -1
         return {
-            "resolved_ip": ips[0] if ips else None,
+            "resolved_ip": resolved_ip,
             "qty_ip_resolved": len(ips),
-            "ttl_hostname": answers.rrset.ttl
+            "ttl_hostname": answers.rrset.ttl if answers.rrset else -1,
+            "asn_ip": asn
         }
     except Exception:
-        return {"resolved_ip": None, "qty_ip_resolved": -1, "ttl_hostname": -1}
+        return {"resolved_ip": None, "qty_ip_resolved": -1, "ttl_hostname": -1, "asn_ip": -1}
 
 def lookup_dns_ns(hostname, registered_domain):
     try:
@@ -221,13 +236,12 @@ def resolve_domain_metrics(hostname, registered_domain):
     results["resolved_ip"] = a_res["resolved_ip"]
     results["qty_ip_resolved"] = a_res["qty_ip_resolved"]
     results["ttl_hostname"] = a_res["ttl_hostname"]
+    results["asn_ip"] = a_res["asn_ip"]
     results["qty_nameservers"] = future_ns.result()
     results["qty_mx_servers"] = future_mx.result()
     act, exp = future_whois.result()
     results["time_domain_activation"] = act
     results["time_domain_expiration"] = exp
-        
-    results["asn_ip"] = get_asn(results["resolved_ip"]) if results["resolved_ip"] else -1
     return results
 
 def extract_features(raw_url: str) -> dict:

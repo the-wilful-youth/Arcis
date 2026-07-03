@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     // Tab switching elements
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    const tabPanes = document.querySelectorAll('.tab-pane');
+    const tabButtons = document.querySelectorAll('.p-tab');
+    const tabPanes = document.querySelectorAll('.p-pane');
 
     // URL Scanner elements
     const activeUrlEl = document.getElementById('active-url');
@@ -26,10 +26,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- 1. Tab Switching Logic ---
     tabButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            tabButtons.forEach(b => b.classList.remove('active'));
+            tabButtons.forEach(b => b.classList.remove('p-tab--active'));
             tabPanes.forEach(p => p.classList.add('hidden'));
 
-            btn.classList.add('active');
+            btn.classList.add('p-tab--active');
             const targetPane = document.getElementById(btn.dataset.tab);
             if (targetPane) {
                 targetPane.classList.remove('hidden');

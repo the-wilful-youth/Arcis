@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from pythonjsonlogger import jsonlogger
 
 # Add parent directory of services to path if running directly
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -13,8 +14,13 @@ from services.url_classifier import predict_url
 from services.email_classifier import predict_sender_email
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configure JSON structured logging
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = jsonlogger.JsonFormatter('%(asctime)s %(levelname)s %(name)s %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 app = Flask(__name__)
 
@@ -101,6 +107,15 @@ def ratelimit_handler(e):
         "error": "Rate limit exceeded. Please wait a moment before trying again.",
         "description": e.description
     }), 429
+
+# Add security headers response hook
+@app.after_request
+def add_security_headers(response):
+    response.headers['Content-Security-Policy'] = "default-src 'self';"
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    return response
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
