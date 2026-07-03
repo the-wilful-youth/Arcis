@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Arcis Phishing Detector",
+  "version": "1.0",
+  "description": "Scans and analyzes active URLs using the Arcis LightGBM machine learning classifier.",
+  "permissions": [
+    "activeTab"
+  ],
+  "host_permissions": [
+    "http://localhost:5001/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

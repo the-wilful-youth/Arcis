@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcis Phishing Shield</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="popup-container">
+        <header>
+            <div class="logo-container">
+                <span class="logo-icon">🛡️</span>
+                <span class="logo-text">ARCIS</span>
+            </div>
+            <span class="shield-badge">SHIELD ACTIVE</span>
+        </header>
+
+        <main>
+            <div class="current-site-box">
+                <div class="site-label">Active Site</div>
+                <div id="active-url" class="site-url">Detecting URL...</div>
+            </div>
+
+            <button id="scan-btn" class="scan-button">Scan This Tab</button>
+
+            <!-- Loading State -->
+            <div id="loading-state" class="state-container hidden">
+                <div class="spinner"></div>
+                <p>Analyzing registry records & structures...</p>
+            </div>
+
+            <!-- Result State -->
+            <div id="result-state" class="state-container hidden">
+                <div class="score-card">
+                    <div id="risk-score" class="score-number">0%</div>
+                    <div class="score-label">PHISHING RISK</div>
+                </div>
+                
+                <div id="status-alert" class="status-banner">SAFE</div>
+                
+                <div class="verdict-card">
+                    <h3>Technical Findings:</h3>
+                    <ul id="findings-list">
+                        <!-- Key reasons populated here -->
+                    </ul>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <span>Powered by Arcis LightGBM Engine</span>
+        </footer>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
