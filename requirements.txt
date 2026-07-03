@@ -1,13 +1,24 @@
+# ==============================================================================
+# Arcis Threat Suite — Core System Requirements
+# ==============================================================================
+
+# Machine Learning & Inference Frameworks
 joblib>=1.3.0
 lightgbm>=4.0.0
+scikit-learn>=1.3.0
 scipy>=1.10.0
 numpy>=1.24.0
-scikit-learn>=1.3.0
-flask>=3.0.0
-flask-cors>=4.0.0
+onnx>=1.15.0
+onnxruntime>=1.16.0
 pandas>=2.0.0
-tldextract>=5.0.0
+
+# Network Telemetry & DNS Resolution
 dnspython>=2.4.0
 python-whois>=0.8.0
+tldextract>=5.0.0
+
+# API Gateways & Production Server Abstractions
+flask>=3.0.0
+flask-cors>=4.0.0
 Flask-Limiter>=3.0.0
 gunicorn>=21.0.0

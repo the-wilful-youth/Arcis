@@ -52,16 +52,32 @@ def analyze_url():
 @limiter.limit("60 per minute")
 def analyze_email():
     data = request.get_json()
-    if not data or 'email' not in data:
-        return jsonify({"error": "Missing 'email' parameter in request body"}), 400
+    if not data:
+        return jsonify({"error": "Missing request body"}), 400
     
-    email = data['email'].strip()
+    # Support both single-field payload or full analysis payload
+    email = data.get('email', data.get('sender', '')).strip()
     if not email:
-        return jsonify({"error": "Empty email address provided"}), 400
+        return jsonify({"error": "Missing or empty 'email' / 'sender' parameter in request body"}), 400
+        
+    subject = data.get('subject', '')
+    body = data.get('body', '')
+    reply_to = data.get('reply_to', '')
+    spf = data.get('spf', 'none')
+    dkim = data.get('dkim', 'none')
+    dmarc = data.get('dmarc', 'none')
     
     logger.info(f"Analyzing Email: {email} from client {get_remote_address()}")
     try:
-        result = predict_sender_email(email)
+        result = predict_sender_email(
+            email_address=email,
+            subject=subject,
+            body=body,
+            reply_to=reply_to,
+            spf=spf,
+            dkim=dkim,
+            dmarc=dmarc
+        )
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error analyzing Email {email}: {e}", exc_info=True)

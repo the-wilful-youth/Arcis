@@ -205,25 +205,27 @@ def lookup_whois(registered_domain):
             pass
     return time_domain_activation, time_domain_expiration
 
+# Create a global thread pool to avoid thread creation overhead
+global_executor = ThreadPoolExecutor(max_workers=30)
+
 def resolve_domain_metrics(hostname, registered_domain):
     results = {}
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        future_time = executor.submit(lookup_response_time, hostname)
-        future_a = executor.submit(lookup_dns_a, hostname)
-        future_ns = executor.submit(lookup_dns_ns, hostname, registered_domain)
-        future_mx = executor.submit(lookup_dns_mx, hostname, registered_domain)
-        future_whois = executor.submit(lookup_whois, registered_domain)
-        
-        results["time_response"] = future_time.result()
-        a_res = future_a.result()
-        results["resolved_ip"] = a_res["resolved_ip"]
-        results["qty_ip_resolved"] = a_res["qty_ip_resolved"]
-        results["ttl_hostname"] = a_res["ttl_hostname"]
-        results["qty_nameservers"] = future_ns.result()
-        results["qty_mx_servers"] = future_mx.result()
-        act, exp = future_whois.result()
-        results["time_domain_activation"] = act
-        results["time_domain_expiration"] = exp
+    future_time = global_executor.submit(lookup_response_time, hostname)
+    future_a = global_executor.submit(lookup_dns_a, hostname)
+    future_ns = global_executor.submit(lookup_dns_ns, hostname, registered_domain)
+    future_mx = global_executor.submit(lookup_dns_mx, hostname, registered_domain)
+    future_whois = global_executor.submit(lookup_whois, registered_domain)
+    
+    results["time_response"] = future_time.result()
+    a_res = future_a.result()
+    results["resolved_ip"] = a_res["resolved_ip"]
+    results["qty_ip_resolved"] = a_res["qty_ip_resolved"]
+    results["ttl_hostname"] = a_res["ttl_hostname"]
+    results["qty_nameservers"] = future_ns.result()
+    results["qty_mx_servers"] = future_mx.result()
+    act, exp = future_whois.result()
+    results["time_domain_activation"] = act
+    results["time_domain_expiration"] = exp
         
     results["asn_ip"] = get_asn(results["resolved_ip"]) if results["resolved_ip"] else -1
     return results
