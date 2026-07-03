@@ -240,4 +240,162 @@ document.addEventListener('DOMContentLoaded', () => {
             submitBtn.disabled = false;
         }
     });
+
+    // --- Tab Switching Logic ---
+    const dashTabs = document.querySelectorAll('.dash-tab');
+    const dashTabPanes = document.querySelectorAll('.dash-tab-pane');
+
+    dashTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            dashTabs.forEach(t => t.classList.remove('active'));
+            dashTabPanes.forEach(p => p.classList.add('hidden'));
+
+            tab.classList.add('active');
+            const targetPane = document.getElementById(tab.dataset.tab);
+            if (targetPane) {
+                targetPane.classList.remove('hidden');
+            }
+        });
+    });
+
+    // --- Email Scanner Form Submit Logic ---
+    const emailForm = document.getElementById('email-analyze-form');
+    const emailSenderInput = document.getElementById('email-sender-input');
+    const emailReplyInput = document.getElementById('email-reply-input');
+    const emailSubjectInput = document.getElementById('email-subject-input');
+    const emailBodyInput = document.getElementById('email-body-input');
+    const emailSpfSelect = document.getElementById('email-spf-select');
+    const emailDkimSelect = document.getElementById('email-dkim-select');
+    const emailDmarcSelect = document.getElementById('email-dmarc-select');
+
+    const emailSubmitBtn = document.getElementById('email-submit-btn');
+    const emailBtnText = emailSubmitBtn.querySelector('.btn-text');
+    const emailSpinner = emailSubmitBtn.querySelector('.spinner');
+
+    const emailResultsSection = document.getElementById('email-results-section');
+    const emailRiskProgress = document.getElementById('email-risk-progress');
+    const emailRiskPercentage = document.getElementById('email-risk-percentage');
+    const emailRiskLabel = document.getElementById('email-risk-label');
+    const emailVerdictDesc = document.getElementById('email-verdict-desc');
+    const emailIndicatorsList = document.getElementById('email-indicators-list');
+
+    // Stats elements
+    const statEmailMx = document.getElementById('stat-email-mx');
+    const statEmailSpf = document.getElementById('stat-email-spf');
+    const statEmailDmarc = document.getElementById('stat-email-dmarc');
+    const statEmailFree = document.getElementById('stat-email-free');
+
+    emailRiskProgress.style.strokeDasharray = `${CIRCUMFERENCE} ${CIRCUMFERENCE}`;
+    emailRiskProgress.style.strokeDashoffset = CIRCUMFERENCE;
+
+    function setEmailGaugeValue(percent) {
+        const offset = CIRCUMFERENCE - (percent / 100) * CIRCUMFERENCE;
+        emailRiskProgress.style.strokeDashoffset = offset;
+        
+        if (percent < 30) {
+            emailRiskProgress.style.stroke = '#10b981';
+            emailRiskLabel.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
+            emailRiskLabel.style.color = '#10b981';
+            emailRiskLabel.textContent = 'SAFE SENDER';
+            emailVerdictDesc.textContent = 'The email headers and sender parameters present safe signals.';
+        } else if (percent < 70) {
+            emailRiskProgress.style.stroke = '#f59e0b';
+            emailRiskLabel.style.backgroundColor = 'rgba(245, 158, 11, 0.15)';
+            emailRiskLabel.style.color = '#f59e0b';
+            emailRiskLabel.textContent = 'SUSPICIOUS SENDER';
+            emailVerdictDesc.textContent = 'Caution: border threat signals detected. Possible spoofing indicators found.';
+        } else {
+            emailRiskProgress.style.stroke = '#ef4444';
+            emailRiskLabel.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+            emailRiskLabel.style.color = '#ef4444';
+            emailRiskLabel.textContent = 'DANGEROUS SENDER';
+            emailVerdictDesc.textContent = 'Warning: Strong matching patterns for email phishing or header authentication failure.';
+        }
+    }
+
+    emailForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const sender = emailSenderInput.value.trim();
+        const replyTo = emailReplyInput.value.trim();
+        const subject = emailSubjectInput.value.trim();
+        const body = emailBodyInput.value.trim();
+        const spf = emailSpfSelect.value;
+        const dkim = emailDkimSelect.value;
+        const dmarc = emailDmarcSelect.value;
+
+        emailBtnText.textContent = 'Analyzing...';
+        emailSpinner.classList.remove('hidden');
+        emailSubmitBtn.disabled = true;
+
+        try {
+            const response = await fetch('http://localhost:5001/api/analyze/email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: sender,
+                    reply_to: replyTo,
+                    subject: subject,
+                    body: body,
+                    spf: spf,
+                    dkim: dkim,
+                    dmarc: dmarc
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Failed to analyze email');
+            }
+
+            const data = await response.json();
+
+            emailResultsSection.classList.remove('hidden');
+            emailResultsSection.scrollIntoView({ behavior: 'smooth' });
+
+            const riskVal = data.risk_score_pct;
+            emailRiskPercentage.textContent = `${riskVal}%`;
+            setEmailGaugeValue(riskVal);
+
+            // Populate stats
+            const dns = data.dns_checks || {};
+            statEmailMx.textContent = dns.has_mx ? 'YES' : 'NO';
+            statEmailSpf.textContent = dns.has_spf ? 'YES' : 'NO';
+            statEmailDmarc.textContent = dns.has_dmarc ? 'YES' : 'NO';
+            statEmailFree.textContent = data.details.is_free_provider ? 'YES' : 'NO';
+
+            // Populate indicators list
+            emailIndicatorsList.innerHTML = '';
+            const reasons = data.details.reasons || [];
+            
+            if (reasons.length === 0) {
+                const item = document.createElement('div');
+                item.className = 'indicator-item';
+                item.innerHTML = `
+                    <span class="indicator-badge down"></span>
+                    <span class="indicator-text">No immediate threat anomalies resolved.</span>
+                `;
+                emailIndicatorsList.appendChild(item);
+            } else {
+                reasons.forEach(reason => {
+                    const item = document.createElement('div');
+                    item.className = 'indicator-item';
+                    item.innerHTML = `
+                        <span class="indicator-badge up"></span>
+                        <span class="indicator-text">${reason}</span>
+                    `;
+                    emailIndicatorsList.appendChild(item);
+                });
+            }
+
+        } catch (error) {
+            console.error(error);
+            alert(`Analysis failed: ${error.message}. Make sure the Flask API server is running on http://localhost:5001`);
+        } finally {
+            emailBtnText.textContent = 'Verify Sender Risk';
+            emailSpinner.classList.add('hidden');
+            emailSubmitBtn.disabled = false;
+        }
+    });
 });

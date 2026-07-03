@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arcis Premium // SaaS Threat Dashboard</title>
+    <title>Arcis | Enterprise Threat Intelligence Suite</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -84,103 +84,231 @@
 
             <!-- Main Scan Dashboard -->
             <main class="scan-workspace">
-                <section class="hero-section">
-                    <h1>SaaS Phishing Detection Engine</h1>
-                    <p class="subtitle">Secure your enterprise traffic. Paste a link below to execute real-time lexical inspection, brand spoof checks, and active DNS registry lookups.</p>
-                    
-                    <form id="analyze-form" class="search-form">
-                        <div class="input-wrapper">
-                            <input type="text" id="url-input" placeholder="Enter link to scan (e.g. http://login.paypa1-update.com)..." required autocomplete="off">
-                            <button type="submit" id="submit-btn">
-                                <span class="btn-text">Quick Scan</span>
+                <div class="dashboard-tabs">
+                    <button class="dash-tab active" data-tab="url-scanner-workspace">URL Threat Inspector</button>
+                    <button class="dash-tab" data-tab="email-scanner-workspace">Email Sender Verifier</button>
+                </div>
+
+                <!-- URL Scanner Workspace Pane -->
+                <div id="url-scanner-workspace" class="dash-tab-pane">
+                    <section class="hero-section">
+                        <h1>SaaS Phishing Detection Engine</h1>
+                        <p class="subtitle">Secure your enterprise traffic. Paste a link below to execute real-time lexical inspection, brand spoof checks, and active DNS registry lookups.</p>
+                        
+                        <form id="analyze-form" class="search-form">
+                            <div class="input-wrapper">
+                                <input type="text" id="url-input" placeholder="Enter link to scan (e.g. http://login.paypa1-update.com)..." required autocomplete="off">
+                                <button type="submit" id="submit-btn">
+                                    <span class="btn-text">Quick Scan</span>
+                                    <span class="spinner hidden"></span>
+                                </button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section id="results-section" class="results-section hidden">
+                        <div class="results-grid">
+                            <!-- Threat Gauge Card -->
+                            <div class="glass-card gauge-card">
+                                <h2 class="card-title">Threat Assessment</h2>
+                                <div class="gauge-wrapper">
+                                    <svg class="progress-ring" width="220" height="220">
+                                        <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.05)" stroke-width="12" fill="transparent" r="90" cx="110" cy="110"/>
+                                        <circle id="risk-progress" class="progress-ring__circle" stroke="#10b981" stroke-width="12" fill="transparent" r="90" cx="110" cy="110"/>
+                                    </svg>
+                                    <div class="gauge-content">
+                                        <span id="risk-percentage" class="risk-value">0%</span>
+                                        <span id="risk-label" class="risk-status">SAFE</span>
+                                    </div>
+                                </div>
+                                <div class="verdict-box">
+                                    <div class="verdict-title">Security Verdict</div>
+                                    <div id="verdict-desc" class="verdict-text">This link matches safe pattern indicators.</div>
+                                </div>
+                            </div>
+
+                            <!-- Technical Details -->
+                            <div class="details-column">
+                                <div class="glass-card indicators-card">
+                                    <h2 class="card-title">Key Risk Indicators & Flags</h2>
+                                    <div id="indicators-list" class="indicators-list">
+                                        <!-- Dynamically populated -->
+                                    </div>
+                                </div>
+
+                                <div class="glass-card stats-card">
+                                    <h2 class="card-title">DNS & Registry Status</h2>
+                                    <div class="stats-grid">
+                                        <div class="stat-item">
+                                            <span class="stat-label">Domain Age</span>
+                                            <span id="stat-domain-age" class="stat-value">--</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Time to Expiry</span>
+                                            <span id="stat-domain-expiry" class="stat-value">--</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Resolved IPs</span>
+                                            <span id="stat-resolved-ips" class="stat-value">--</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Ping Latency</span>
+                                            <span id="stat-response-time" class="stat-value">--</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="glass-card stats-card">
+                                    <h2 class="card-title">Lexical Analysis</h2>
+                                    <div class="stats-grid">
+                                        <div class="stat-item">
+                                            <span class="stat-label">URL Length</span>
+                                            <span id="stat-url-length" class="stat-value">--</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Domain Length</span>
+                                            <span id="stat-domain-length" class="stat-value">--</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Directory Depth</span>
+                                            <span id="stat-dir-slashes" class="stat-value">--</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Parameters</span>
+                                            <span id="stat-params-count" class="stat-value">--</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Email Scanner Workspace Pane -->
+                <div id="email-scanner-workspace" class="dash-tab-pane hidden">
+                    <section class="hero-section">
+                        <h1>SaaS Email Sender Verifier</h1>
+                        <p class="subtitle">Validate incoming corporate messages. Paste the sender details, header authentication flags, and email body to execute real-time threat calculations.</p>
+                        
+                        <form id="email-analyze-form" class="email-details-form glass-card">
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label for="email-sender-input">Sender Address</label>
+                                    <input type="email" id="email-sender-input" placeholder="e.g. billing@paypal-verify.com" required autocomplete="off">
+                                </div>
+                                <div class="form-field">
+                                    <label for="email-reply-input">Reply-To Address (Optional)</label>
+                                    <input type="email" id="email-reply-input" placeholder="e.g. attacker@evil.com" autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label for="email-subject-input">Email Subject Line</label>
+                                    <input type="text" id="email-subject-input" placeholder="e.g. Action Required: Verification Needed" autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label for="email-body-input">Email Body Preview</label>
+                                    <textarea id="email-body-input" rows="4" placeholder="e.g. Please click the link to verify your account details. Failing to do so will result in suspension..." autocomplete="off"></textarea>
+                                </div>
+                            </div>
+                            
+                            <div class="auth-grid-row">
+                                <div class="form-field">
+                                    <label for="email-spf-select">SPF Header</label>
+                                    <select id="email-spf-select">
+                                        <option value="none">None / Neutral</option>
+                                        <option value="pass">Pass</option>
+                                        <option value="fail">Fail</option>
+                                    </select>
+                                </div>
+                                <div class="form-field">
+                                    <label for="email-dkim-select">DKIM Header</label>
+                                    <select id="email-dkim-select">
+                                        <option value="none">None / Neutral</option>
+                                        <option value="pass">Pass</option>
+                                        <option value="fail">Fail</option>
+                                    </select>
+                                </div>
+                                <div class="form-field">
+                                    <label for="email-dmarc-select">DMARC Header</label>
+                                    <select id="email-dmarc-select">
+                                        <option value="none">None / Neutral</option>
+                                        <option value="pass">Pass</option>
+                                        <option value="fail">Fail</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" id="email-submit-btn" class="scan-button-primary">
+                                <span class="btn-text">Verify Sender Risk</span>
                                 <span class="spinner hidden"></span>
                             </button>
-                        </div>
-                    </form>
-                </section>
+                        </form>
+                    </section>
 
-                <section id="results-section" class="results-section hidden">
-                    <div class="results-grid">
-                        <!-- Threat Gauge Card -->
-                        <div class="glass-card gauge-card">
-                            <h2 class="card-title">Threat Assessment</h2>
-                            <div class="gauge-wrapper">
-                                <svg class="progress-ring" width="220" height="220">
-                                    <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.05)" stroke-width="12" fill="transparent" r="90" cx="110" cy="110"/>
-                                    <circle id="risk-progress" class="progress-ring__circle" stroke="#10b981" stroke-width="12" fill="transparent" r="90" cx="110" cy="110"/>
-                                </svg>
-                                <div class="gauge-content">
-                                    <span id="risk-percentage" class="risk-value">0%</span>
-                                    <span id="risk-label" class="risk-status">SAFE</span>
+                    <section id="email-results-section" class="results-section hidden">
+                        <div class="results-grid">
+                            <!-- Threat Gauge Card -->
+                            <div class="glass-card gauge-card">
+                                <h2 class="card-title">Threat Assessment</h2>
+                                <div class="gauge-wrapper">
+                                    <svg class="progress-ring" width="220" height="220">
+                                        <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.05)" stroke-width="12" fill="transparent" r="90" cx="110" cy="110"/>
+                                        <circle id="email-risk-progress" class="progress-ring__circle" stroke="#10b981" stroke-width="12" fill="transparent" r="90" cx="110" cy="110"/>
+                                    </svg>
+                                    <div class="gauge-content">
+                                        <span id="email-risk-percentage" class="risk-value">0%</span>
+                                        <span id="email-risk-label" class="risk-status">SAFE</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="verdict-box">
-                                <div class="verdict-title">Security Verdict</div>
-                                <div id="verdict-desc" class="verdict-text">This link matches safe pattern indicators.</div>
-                            </div>
-                        </div>
-
-                        <!-- Technical Details -->
-                        <div class="details-column">
-                            <div class="glass-card indicators-card">
-                                <h2 class="card-title">Key Risk Indicators & Flags</h2>
-                                <div id="indicators-list" class="indicators-list">
-                                    <!-- Dynamically populated -->
+                                <div class="verdict-box">
+                                    <div class="verdict-title">Security Verdict</div>
+                                    <div id="email-verdict-desc" class="verdict-text">Sender domain shows safe verification states.</div>
                                 </div>
                             </div>
 
-                            <div class="glass-card stats-card">
-                                <h2 class="card-title">DNS & Registry Status</h2>
-                                <div class="stats-grid">
-                                    <div class="stat-item">
-                                        <span class="stat-label">Domain Age</span>
-                                        <span id="stat-domain-age" class="stat-value">--</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span class="stat-label">Time to Expiry</span>
-                                        <span id="stat-domain-expiry" class="stat-value">--</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span class="stat-label">Resolved IPs</span>
-                                        <span id="stat-resolved-ips" class="stat-value">--</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span class="stat-label">Ping Latency</span>
-                                        <span id="stat-response-time" class="stat-value">--</span>
+                            <!-- Findings & DNS Metrics -->
+                            <div class="details-column">
+                                <div class="glass-card indicators-card">
+                                    <h2 class="card-title">Detailed Risk Reasons & Warnings</h2>
+                                    <div id="email-indicators-list" class="indicators-list">
+                                        <!-- Dynamically populated -->
                                     </div>
                                 </div>
-                            </div>
 
-                            <div class="glass-card stats-card">
-                                <h2 class="card-title">Lexical Analysis</h2>
-                                <div class="stats-grid">
-                                    <div class="stat-item">
-                                        <span class="stat-label">URL Length</span>
-                                        <span id="stat-url-length" class="stat-value">--</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span class="stat-label">Domain Length</span>
-                                        <span id="stat-domain-length" class="stat-value">--</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span class="stat-label">Directory Depth</span>
-                                        <span id="stat-dir-slashes" class="stat-value">--</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span class="stat-label">Parameters</span>
-                                        <span id="stat-params-count" class="stat-value">--</span>
+                                <div class="glass-card stats-card">
+                                    <h2 class="card-title">DNS Lookup Telemetry</h2>
+                                    <div class="stats-grid">
+                                        <div class="stat-item">
+                                            <span class="stat-label">Active MX Configured</span>
+                                            <span id="stat-email-mx" class="stat-value">--</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">SPF Policy Records</span>
+                                            <span id="stat-email-spf" class="stat-value">--</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">DMARC Policy Records</span>
+                                            <span id="stat-email-dmarc" class="stat-value">--</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Free Email Provider</span>
+                                            <span id="stat-email-free" class="stat-value">--</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </section>
+                    </section>
+                </div>
             </main>
         </div>
 
         <footer>
             <div class="footer-content">
-                <span class="engine-info">Tuned LightGBM Stacking Classifier (F1 Score: 0.9611)</span>
+                <span class="engine-info">Powered by Tuned LightGBM Stacking Classifier (URLs) & XGBoost ONNX Classifier (Emails)</span>
                 <span class="copyright">&copy; 2026 Arcis Threat Labs</span>
             </div>
         </footer>
