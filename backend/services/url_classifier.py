@@ -23,6 +23,10 @@ model = bundle["model"]
 scaler = bundle["scaler"]
 features_list = bundle["feature_names"]
 
+dns_resolver = dns.resolver.Resolver()
+dns_resolver.timeout = 1.0
+dns_resolver.lifetime = 1.5
+
 SUSPICIOUS_CHARS = ['.', '-', '_', '/', '?', '=', '@', '&', '!', ' ', '~', ',', '+', '*', '#', '$', '%']
 CHAR_NAMES = ['dot','hyphen','underline','slash','questionmark','equal','at','and',
               'exclamation','space','tilde','comma','plus','asterisk','hashtag','dollar','percent']
@@ -48,25 +52,28 @@ def levenshtein_distance(s1, s2):
 
 def check_brand_impersonation(domain: str, registered_domain: str) -> dict:
     """Check if the domain is impersonating trusted brand names (typosquatting or keyword hijacking)."""
+    if domain and domain.startswith("xn--"):
+        return {"impersonated": True, "brand": "Punycode (IDN)", "type": "IDN Homograph Attack"}
+
     if not registered_domain:
         return {"impersonated": False, "brand": None}
         
     brand_domains = {
-        'paypal': 'paypal.com',
-        'google': 'google.com',
-        'github': 'github.com',
-        'microsoft': 'microsoft.com',
-        'netflix': 'netflix.com',
-        'amazon': 'amazon.com',
-        'apple': 'apple.com',
-        'facebook': 'facebook.com',
-        'instagram': 'instagram.com',
-        'twitter': 'twitter.com',
-        'linkedin': 'linkedin.com',
-        'yahoo': 'yahoo.com',
-        'dropbox': 'dropbox.com',
-        'adobe': 'adobe.com',
-        'zoom': 'zoom.us'
+        'paypal': 'paypal.com', 'google': 'google.com', 'github': 'github.com',
+        'microsoft': 'microsoft.com', 'netflix': 'netflix.com', 'amazon': 'amazon.com',
+        'apple': 'apple.com', 'facebook': 'facebook.com', 'instagram': 'instagram.com',
+        'twitter': 'twitter.com', 'linkedin': 'linkedin.com', 'yahoo': 'yahoo.com',
+        'dropbox': 'dropbox.com', 'adobe': 'adobe.com', 'zoom': 'zoom.us',
+        'chase': 'chase.com', 'wellsfargo': 'wellsfargo.com', 'bankofamerica': 'bankofamerica.com',
+        'citi': 'citi.com', 'capitalone': 'capitalone.com', 'americanexpress': 'americanexpress.com',
+        'binance': 'binance.com', 'coinbase': 'coinbase.com', 'kraken': 'kraken.com',
+        'steam': 'steampowered.com', 'discord': 'discord.com', 'epicgames': 'epicgames.com',
+        'dhl': 'dhl.com', 'fedex': 'fedex.com', 'usps': 'usps.com', 'ups': 'ups.com',
+        'salesforce': 'salesforce.com', 'slack': 'slack.com', 'okta': 'okta.com',
+        'office365': 'office.com', 'outlook': 'outlook.com', 'onedrive': 'onedrive.live.com',
+        'whatsapp': 'whatsapp.com', 'telegram': 'telegram.org', 'snapchat': 'snapchat.com',
+        'tiktok': 'tiktok.com', 'roblox': 'roblox.com', 'spotify': 'spotify.com',
+        'icloud': 'icloud.com', 'xfinity': 'xfinity.com', 'att': 'att.com', 'verizon': 'verizon.com'
     }
     
     reg_parts = registered_domain.split('.')
@@ -126,7 +133,7 @@ def get_asn(ip):
         if len(parts) == 4:
             reversed_ip = '.'.join(reversed(parts))
             query = f"{reversed_ip}.origin.asn.cymru.com"
-            answers = dns.resolver.resolve(query, 'TXT')
+            answers = dns_resolver.resolve(query, 'TXT')
             for rdata in answers:
                 txt = rdata.to_text().strip('"')
                 asn_str = txt.split('|')[0].strip()
@@ -138,21 +145,22 @@ def get_asn(ip):
 
 import ipaddress
 
-def is_private_ip(hostname):
+def is_private_ip(ip_str):
+    if not ip_str:
+        return False
     try:
-        ip_str = socket.gethostbyname(hostname)
         ip = ipaddress.ip_address(ip_str)
         return ip.is_private or ip.is_loopback or ip.is_link_local
     except Exception:
-        return True
+        return False
 
 # --- Concurrent Lookups ---
-def lookup_response_time(hostname):
-    if is_private_ip(hostname):
+def lookup_response_time(hostname, resolved_ip=None):
+    if resolved_ip and is_private_ip(resolved_ip):
         return -1.0
     t0 = time.time()
     try:
-        s = socket.create_connection((hostname, 80), timeout=1.0)
+        s = socket.create_connection((resolved_ip or hostname, 80), timeout=1.0)
         res_time = time.time() - t0
         s.close()
         return res_time
@@ -161,7 +169,7 @@ def lookup_response_time(hostname):
 
 def lookup_dns_a(hostname):
     try:
-        answers = dns.resolver.resolve(hostname, 'A')
+        answers = dns_resolver.resolve(hostname, 'A')
         ips = [ip.address for ip in answers]
         resolved_ip = ips[0] if ips else None
         asn = get_asn(resolved_ip) if resolved_ip else -1
@@ -176,12 +184,12 @@ def lookup_dns_a(hostname):
 
 def lookup_dns_ns(hostname, registered_domain):
     try:
-        ext_ns = dns.resolver.resolve(hostname, 'NS')
+        ext_ns = dns_resolver.resolve(hostname, 'NS')
         return len(ext_ns)
     except Exception:
         try:
             if registered_domain and registered_domain != hostname:
-                ext_ns = dns.resolver.resolve(registered_domain, 'NS')
+                ext_ns = dns_resolver.resolve(registered_domain, 'NS')
                 return len(ext_ns)
         except Exception:
             pass
@@ -189,12 +197,12 @@ def lookup_dns_ns(hostname, registered_domain):
 
 def lookup_dns_mx(hostname, registered_domain):
     try:
-        ext_mx = dns.resolver.resolve(hostname, 'MX')
+        ext_mx = dns_resolver.resolve(hostname, 'MX')
         return len(ext_mx)
     except Exception:
         try:
             if registered_domain and registered_domain != hostname:
-                ext_mx = dns.resolver.resolve(registered_domain, 'MX')
+                ext_mx = dns_resolver.resolve(registered_domain, 'MX')
                 return len(ext_mx)
         except Exception:
             pass
@@ -225,21 +233,30 @@ global_executor = ThreadPoolExecutor(max_workers=30)
 
 def resolve_domain_metrics(hostname, registered_domain):
     results = {}
-    future_time = global_executor.submit(lookup_response_time, hostname)
-    future_a = global_executor.submit(lookup_dns_a, hostname)
+    
+    # Resolve DNS A first (has short timeout) to supply IP to response_time
+    a_res = lookup_dns_a(hostname)
+    resolved_ip = a_res["resolved_ip"]
+    
+    future_time = global_executor.submit(lookup_response_time, hostname, resolved_ip)
     future_ns = global_executor.submit(lookup_dns_ns, hostname, registered_domain)
     future_mx = global_executor.submit(lookup_dns_mx, hostname, registered_domain)
     future_whois = global_executor.submit(lookup_whois, registered_domain)
     
     results["time_response"] = future_time.result()
-    a_res = future_a.result()
-    results["resolved_ip"] = a_res["resolved_ip"]
+    results["resolved_ip"] = resolved_ip
     results["qty_ip_resolved"] = a_res["qty_ip_resolved"]
     results["ttl_hostname"] = a_res["ttl_hostname"]
     results["asn_ip"] = a_res["asn_ip"]
     results["qty_nameservers"] = future_ns.result()
     results["qty_mx_servers"] = future_mx.result()
-    act, exp = future_whois.result()
+    
+    # Strict WHOIS timeout
+    try:
+        act, exp = future_whois.result(timeout=3.0)
+    except Exception:
+        act, exp = -1, -1
+        
     results["time_domain_activation"] = act
     results["time_domain_expiration"] = exp
     return results
@@ -376,7 +393,10 @@ def predict_url(url: str) -> dict:
     prob = model.predict_proba(scaled_df)[0, 1]
     is_phishing = bool(prob >= 0.5)
     
-    if brand_check["impersonated"]:
+    if brand_check.get("official"):
+        is_phishing = False
+        prob = min(prob, 0.05)
+    elif brand_check.get("impersonated"):
         is_phishing = True
         prob = max(prob, 0.95)
 

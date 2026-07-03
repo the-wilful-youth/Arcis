@@ -11,6 +11,9 @@ numpy>=1.24.0
 onnx>=1.15.0
 onnxruntime>=1.16.0
 pandas>=2.0.0
+xgboost>=2.0.0
+onnxmltools>=1.12.0
+skl2onnx>=1.16.0
 
 # Network Telemetry & DNS Resolution
 dnspython>=2.4.0
@@ -22,3 +25,4 @@ flask>=3.0.0
 flask-cors>=4.0.0
 Flask-Limiter>=3.0.0
 gunicorn>=21.0.0
+python-json-logger>=2.0.7
