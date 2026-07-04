@@ -100,6 +100,13 @@ def verify_email_dns(domain: str) -> dict:
 
     return results
 
+try:
+    from services.url_classifier import predict_url
+    from services.confidence_scorer import score_analysis_confidence
+except ImportError:
+    from url_classifier import predict_url
+    from confidence_scorer import score_analysis_confidence
+
 def predict_sender_email(
     email_address: str,
     subject: str = "",
@@ -113,7 +120,9 @@ def predict_sender_email(
     Checks email legitimacy using a combination of:
     1. Active domain DNS security configuration (MX, SPF, DMARC records).
     2. Handcrafted heuristics (urgency words, mismatch in domains, formatting).
-    3. Machine Learning (XGBoost ONNX model trained on TF-IDF features).
+    3. Real-time embedded URL analysis.
+    4. NLP/Heuristic risk categorization.
+    5. Machine Learning (XGBoost ONNX model trained on TF-IDF features).
     """
     email = str(email_address).strip()
     
@@ -147,94 +156,51 @@ def predict_sender_email(
         dns_status = verify_email_dns(domain)
         email_dns_cache.set(domain, dns_status)
 
-    # 3. Hand-crafted Heuristic Scoring & Boosts
-    features = {}
-    phishing_boost = 0.0
-    reasons = []
-
-    # Urgency words detection
+    # 3. Urgency / Heuristic Check
     urgency_words = ['urgent', 'verify', 'confirm', 'click', 'immediately', 
                      'suspended', 'expired', 'update', 'action', 'required',
                      'act now', 'claim', 'congratulations', 'won', 'free']
     
     combined_text = (subject + " " + body).lower()
     urgency_count = sum(1 for word in urgency_words if word in combined_text)
+    reasons = []
 
-    if urgency_count > 0:
-        features['urgency_words'] = urgency_count
-        phishing_boost += 0.1 * urgency_count
-        reasons.append(f"Contains {urgency_count} urgency/phishing-related keywords.")
+    # 4. URL Analysis Extraction & Scoring
+    urls = re.findall(r'(https?://[^\s<>"]+|www\.[^\s<>"]+)', body)
+    # Deduplicate and limit to first 5 to prevent performance bottlenecks
+    unique_urls = list(dict.fromkeys(urls))[:5]
+    suspicious_urls = 0
+    high_risk_urls = 0
+    scanned_url_details = []
 
-    # Sender vs Reply-To Mismatch
-    sender_domain = domain
-    reply_to_domain = reply_to.split('@')[1].lower() if (reply_to and '@' in reply_to) else ""
+    for u in unique_urls:
+        try:
+            url_res = predict_url(u)
+            url_score = url_res.get("risk_score_pct", 0)
+            scanned_url_details.append(url_res)
+            if url_score >= 70:
+                high_risk_urls += 1
+            elif url_score >= 30:
+                suspicious_urls += 1
+        except Exception as e:
+            # Graceful degradation of individual URL checking
+            pass
 
-    if sender_domain and reply_to_domain and sender_domain != reply_to_domain:
-        features['sender_reply_mismatch'] = True
-        phishing_boost += 0.15
-        reasons.append("Sender domain and Reply-To domain do not match.")
+    url_analysis_data = {
+        'summary': {
+            'total_urls': len(unique_urls),
+            'safe_urls': len(unique_urls) - (suspicious_urls + high_risk_urls),
+            'suspicious_urls': suspicious_urls,
+            'high_risk_urls': high_risk_urls
+        }
+    }
 
-    # Email header failures
-    auth_failures = 0
-    if spf == "fail":
-        auth_failures += 1
-        features['spf_failed'] = True
-        reasons.append("SPF verification failed.")
-    if dkim == "fail":
-        auth_failures += 1
-        features['dkim_failed'] = True
-        reasons.append("DKIM verification failed.")
-    if dmarc == "fail":
-        auth_failures += 1
-        features['dmarc_failed'] = True
-        reasons.append("DMARC verification failed.")
-    
-    if auth_failures > 0:
-        phishing_boost += 0.2 * auth_failures
+    if high_risk_urls > 0:
+        reasons.append(f"Embedded URLs contain {high_risk_urls} high-risk/phishing links.")
+    elif suspicious_urls > 0:
+        reasons.append(f"Embedded URLs contain {suspicious_urls} suspicious/unverified links.")
 
-    # Suspicious patterns
-    if body:
-        caps_ratio = sum(1 for c in body if c.isupper()) / max(len(body), 1)
-        if caps_ratio > 0.3:
-            features['high_cap_ratio'] = True
-            phishing_boost += 0.05
-            reasons.append("High ratio of uppercase letters in body.")
-
-    exclamation_count = combined_text.count('!')
-    if exclamation_count > 5:
-        features['excessive_exclamation'] = True
-        phishing_boost += 0.05
-        reasons.append("Excessive exclamation marks in text.")
-
-    link_count = combined_text.count('https://') + combined_text.count('http://')
-    if link_count > 3:
-        features['multiple_links'] = True
-        phishing_boost += 0.05
-        reasons.append("Contains multiple HTTP/HTTPS links.")
-
-    # Standard DNS-based checks fallback / helper
-    if not is_free_provider:
-        if not dns_status["has_mx"]:
-            phishing_boost += 0.4
-            reasons.append("Sender domain has no active MX mail server records.")
-        if not dns_status["has_spf"] and spf == "none":
-            phishing_boost += 0.15
-            reasons.append("Sender domain lacks SPF authentication record.")
-        if not dns_status["has_dmarc"] and dmarc == "none":
-            phishing_boost += 0.15
-            reasons.append("Sender domain lacks DMARC configuration policy.")
-    else:
-        # For free providers, check if local part contains brand names/suspicious keywords
-        suspicious_words = ['secure', 'support', 'service', 'verify', 'update', 'login', 'admin', 'billing', 'paypal', 'bank']
-        flagged_words = [w for w in suspicious_words if w in local_part.lower()]
-        if flagged_words:
-            phishing_boost += 0.35
-            reasons.append(f"Free email local part contains suspicious keywords: {', '.join(w.upper() for w in flagged_words)}")
-
-    # Limit boost influence
-    phishing_boost = min(phishing_boost, 0.5)
-
-    # 4. Machine Learning Inference (XGBoost ONNX)
+    # 5. Machine Learning Inference (XGBoost ONNX)
     model_score = 0.0
     ml_used = False
     
@@ -244,39 +210,139 @@ def predict_sender_email(
             email_vector = vectorizer.transform([email_text])
             email_vector_dense = email_vector.toarray().astype(np.float32)
             
-            # Run session
             input_name = session.get_inputs()[0].name
             raw_pred = session.run(None, {input_name: email_vector_dense})
-            
-            # Extract probability for phishing class
             model_score = float(raw_pred[1][0][1])
             ml_used = True
         except Exception as e:
             reasons.append(f"ML Classifier failed during inference: {e}")
 
-    # 5. Blend Scores (70% model, 30% heuristics if ML used, otherwise heuristics * 100)
+    ml_classifier_data = {
+        'classification': 'phishing' if model_score >= 0.5 else 'legitimate',
+        'confidence': model_score
+    }
+
+    # 6. NLP Heuristics / Request Analysis
+    # A. Sensitive request detection
+    sensitive_keywords = ['password', 'credential', 'login', 'bank', 'ssn', 'payment', 'card', 'transfer', 'social security', 'identity', 'verification']
+    has_sensitive = any(w in combined_text for w in sensitive_keywords)
+    sensitive_request_data = {
+        'is_sensitive_request': has_sensitive,
+        'risk_level': 'high' if (has_sensitive and (urgency_count > 0 or len(unique_urls) > 0)) else ('medium' if has_sensitive else 'none')
+    }
+    if sensitive_request_data['risk_level'] in ['high', 'medium']:
+        reasons.append("Email contains requests for sensitive information (credentials, payment, or identity).")
+
+    # B. Polite/Deceptive request detection (generic greetings combined with action request)
+    polite_greetings = ['dear customer', 'valued customer', 'respected sir', 'respected madam', 'dear user', 'greetings']
+    has_polite = any(w in combined_text for w in polite_greetings)
+    polite_request_data = {
+        'is_polite_request': has_polite,
+        'risk_level': 'medium' if (has_polite and (urgency_count > 0 or len(unique_urls) > 0)) else ('low' if has_polite else 'none')
+    }
+    if polite_request_data['risk_level'] == 'medium':
+        reasons.append("Use of generic formal greeting combined with a call to action.")
+
+    # C. Short Email Risk
+    short_email_risk_data = {
+        'is_short': len(body) < 150,
+        'risk_level': 'high' if (len(body) < 150 and (urgency_count > 0 or len(unique_urls) > 0)) else 'none'
+    }
+    if short_email_risk_data['risk_level'] == 'high':
+        reasons.append("Short email containing high urgency markers or embedded links (common phishing template).")
+
+    # Sender vs Reply-To Mismatch
+    sender_domain = domain
+    reply_to_domain = reply_to.split('@')[1].lower() if (reply_to and '@' in reply_to) else ""
+    if sender_domain and reply_to_domain and sender_domain != reply_to_domain:
+        reasons.append("Sender domain and Reply-To domain do not match.")
+
+    # DNS checks fallback reasons
+    if not is_free_provider:
+        if not dns_status["has_mx"]:
+            reasons.append("Sender domain has no active MX mail server records.")
+        if not dns_status["has_spf"] and spf == "none":
+            reasons.append("Sender domain lacks SPF authentication record.")
+        if not dns_status["has_dmarc"] and dmarc == "none":
+            reasons.append("Sender domain lacks DMARC configuration policy.")
+    else:
+        # For free providers, check if local part contains brand names/suspicious keywords
+        suspicious_words = ['secure', 'support', 'service', 'verify', 'update', 'login', 'admin', 'billing', 'paypal', 'bank']
+        flagged_words = [w for w in suspicious_words if w in local_part.lower()]
+        if flagged_words:
+            reasons.append(f"Free email local part contains suspicious keywords: {', '.join(w.upper() for w in flagged_words)}")
+
+    # Email header failures
+    if spf == "fail":
+        reasons.append("SPF verification failed.")
+    if dkim == "fail":
+        reasons.append("DKIM verification failed.")
+    if dmarc == "fail":
+        reasons.append("DMARC verification failed.")
+
+    # 7. Aggregate Scores using mnc-grade ConfidenceScorer
+    scoring_payload = {
+        'ml_classifier': ml_classifier_data,
+        'url_analysis': url_analysis_data,
+        'sensitive_request': sensitive_request_data,
+        'polite_request': polite_request_data,
+        'short_email_risk': short_email_risk_data
+    }
+
+    score_result = score_analysis_confidence(scoring_payload)
+
+    # 8. Calculate Sender Reputation/Authentication Threat Score
+    sender_risk = 0.0
+    if not is_free_provider:
+        if not dns_status.get("has_mx", True):
+            sender_risk = max(sender_risk, 0.8)
+        if not dns_status.get("has_spf", True) and spf == "none":
+            sender_risk = max(sender_risk, 0.4)
+        if not dns_status.get("has_dmarc", True) and dmarc == "none":
+            sender_risk = max(sender_risk, 0.4)
+    else:
+        # Check local part suspicious keywords
+        suspicious_words = ['secure', 'support', 'service', 'verify', 'update', 'login', 'admin', 'billing', 'paypal', 'bank']
+        flagged_words = [w for w in suspicious_words if w in local_part.lower()]
+        if flagged_words:
+            sender_risk = max(sender_risk, 0.7)
+
+    # Header authentication status
+    auth_fails = sum(1 for status_val in [spf, dkim, dmarc] if status_val == "fail")
+    if auth_fails > 0:
+        sender_risk = max(sender_risk, 0.3 * auth_fails)
+        
+    if sender_domain and reply_to_domain and sender_domain != reply_to_domain:
+        sender_risk = max(sender_risk, 0.5)
+
+    # Blend overall confidence with sender/header-level risk
+    final_score = max(score_result.overall_confidence, sender_risk)
+    final_score_pct = round(final_score * 100, 2)
+    is_phishing = final_score_pct >= 50.0
+    
+    # Prepend classifier info
     if ml_used:
-        final_score = 0.7 * model_score + 0.3 * phishing_boost
-        final_score_pct = min(max(final_score * 100.0, 0.0), 100.0)
         reasons.insert(0, f"XGBoost ONNX Classifier calculated phishing probability: {model_score*100.0:.1f}%")
     else:
-        # Fallback to heuristics only
-        if not reasons:
-            reasons.append("Email matches standard sender authentication patterns.")
-        final_score_pct = min(max(phishing_boost * 200.0, 0.0), 100.0)  # Scale heuristic boost to 100 max
         if session is None or vectorizer is None:
-            reasons.append("ML Classifier is currently unavailable because the companion vectorizer.pkl is missing. Falling back to DNS and heuristic checks.")
+            reasons.append("ML Classifier is currently unavailable. Falling back to heuristics and link verification.")
 
-    is_phishing = final_score_pct >= 50.0
+    if not reasons:
+        reasons.append("Email matches standard sender authentication patterns and contains no suspicious signals.")
 
     return {
         "email": email,
         "is_phishing": is_phishing,
-        "risk_score_pct": float(final_score_pct),
+        "risk_score_pct": final_score_pct,
         "details": {
             "is_free_provider": is_free_provider,
             "reasons": reasons,
-            "ml_classifier_used": ml_used
+            "ml_classifier_used": ml_used,
+            "component_scores": score_result.component_scores,
+            "reasoning": score_result.reasoning,
+            "scanned_urls": scanned_url_details
         },
         "dns_checks": dns_status
     }
+
+

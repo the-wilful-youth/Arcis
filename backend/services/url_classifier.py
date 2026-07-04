@@ -58,12 +58,22 @@ def resolve_redirects(url: str, timeout=1.0) -> str:
     url_to_check = url.strip()
     if not re.match(r'^[a-zA-Z]+://', url_to_check):
         url_to_check = 'http://' + url_to_check
+    
+    # Restrict scheme to http/https to prevent local file disclosure (SSRF)
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url_to_check)
+        if parsed.scheme not in ('http', 'https'):
+            return url
+    except Exception:
+        return url
+
     try:
         req = urllib.request.Request(
             url_to_check,
             headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ArcisLinkChecker/1.0'}
         )
-        with urllib.request.urlopen(req, timeout=timeout) as response:
+        with urllib.request.urlopen(req, timeout=timeout) as response:  # nosec B310
             return response.geturl()
     except Exception:
         return url
