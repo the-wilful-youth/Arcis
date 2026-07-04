@@ -436,6 +436,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
             indicatorCount.textContent = `${count} signal${count !== 1 ? 's' : ''}`;
 
+            /* Ranked risk factor breakdown for URL analysis */
+            const urlRankingContainer = document.getElementById('url-risk-ranking');
+            if (urlRankingContainer) {
+                urlRankingContainer.innerHTML = '';
+
+                const rankedFeatures = [...(data.top_features || [])]
+                    .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
+
+                const featureLabels = {
+                    time_domain_activation: 'Domain Age',
+                    time_domain_expiration: 'Domain Expiry',
+                    qty_ip_resolved:        'Resolved IPs',
+                    time_response:          'Server Response Time',
+                    length_url:             'URL Length',
+                    domain_length:          'Domain Length'
+                };
+
+                rankedFeatures.forEach(item => {
+                    const label = featureLabels[item.feature] || item.feature.replace(/_/g, ' ');
+                    const isRisky = item.direction === 'increases';
+                    // Normalize impact magnitude to a 0-100 bar width
+                    const maxImpact = Math.max(...rankedFeatures.map(f => Math.abs(f.impact)), 0.0001);
+                    const pct = Math.round((Math.abs(item.impact) / maxImpact) * 100);
+                    const tone = isRisky ? 'danger' : 'safe';
+
+                    const row = document.createElement('div');
+                    row.className = 'ranking-row';
+                    row.innerHTML = `
+                        <div class="ranking-row__label">${label}</div>
+                        <div class="ranking-row__bar">
+                            <div class="ranking-row__fill" style="width:${pct}%"></div>
+                        </div>
+                        <div class="ranking-row__pct">${isRisky ? '+' : '−'}${pct}%</div>
+                    `;
+                    urlRankingContainer.appendChild(row);
+                });
+            }
+
         } catch (err) {
             console.error('[Arcis URL]', err);
             showError(`Analysis failed: ${err.message}. Ensure the Flask API is running on ${API_BASE}`);
@@ -499,6 +537,39 @@ document.addEventListener('DOMContentLoaded', () => {
             setStat(statEmailFree,
                 data.details?.is_free_provider ? 'YES' : 'NO',
                 data.details?.is_free_provider ? 'warn' : 'safe');
+
+            /* Ranked risk factor breakdown (from confidence_scorer) */
+            const componentScores = data.details?.component_scores || {};
+            const componentLabels = {
+                ml_classifier:     'ML Classifier',
+                url_analysis:      'Embedded URL Analysis',
+                sensitive_request: 'Sensitive Info Request',
+                polite_request:    'Generic Greeting Pattern',
+                short_email_risk:  'Short/Urgent Email Pattern'
+            };
+
+            const rankedComponents = Object.entries(componentScores)
+                .sort((a, b) => b[1] - a[1]);
+
+            const rankingContainer = document.getElementById('email-risk-ranking');
+            if (rankingContainer) {
+                rankingContainer.innerHTML = '';
+                rankedComponents.forEach(([key, score]) => {
+                    const pct = Math.round(score * 100);
+                    const tone = pct >= 70 ? 'danger' : pct >= 30 ? 'warn' : 'safe';
+
+                    const row = document.createElement('div');
+                    row.className = 'ranking-row';
+                    row.innerHTML = `
+                        <div class="ranking-row__label">${componentLabels[key] || key}</div>
+                        <div class="ranking-row__bar">
+                            <div class="ranking-row__fill" style="width:${pct}%"></div>
+                        </div>
+                        <div class="ranking-row__pct">${pct}%</div>
+                    `;
+                    rankingContainer.appendChild(row);
+                });
+            }
 
             /* Risk indicators */
             emailIndicatorsList.innerHTML = '';
