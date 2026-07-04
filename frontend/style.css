@@ -1360,3 +1360,119 @@ img, svg { display: block; }
         flex: 0 0 calc(50% - 8px);
     }
 }
+
+/* ── Team Details Workspace Styles ────────────────────────── */
+.team-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-top: 24px;
+}
+
+@media (max-width: 992px) {
+    .team-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .team-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.team-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    background: var(--surface-1);
+}
+
+.team-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.team-card__image-container {
+    width: 100%;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    background: #0d161a;
+}
+
+.team-card__image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.team-card:hover .team-card__image {
+    transform: scale(1.04);
+}
+
+.team-card__content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+    flex-grow: 1;
+}
+
+.team-card__name {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-1);
+    letter-spacing: -0.01em;
+}
+
+.team-card__role {
+    font-size: 12px;
+    color: var(--text-2);
+    margin-bottom: 12px;
+}
+
+.team-card__links {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-top: auto;
+}
+
+.team-link {
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.team-link:hover {
+    color: var(--blue);
+    transform: translateY(-1px);
+}
+
+.footer__link-btn {
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: color 0.2s ease;
+    padding: 0;
+}
+
+.footer__link-btn:hover {
+    color: var(--text-1);
+    text-decoration: underline;
+}

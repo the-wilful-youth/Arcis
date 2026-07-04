@@ -2,7 +2,7 @@ import os
 import sys
 import logging
 from fastapi import FastAPI, Request, HTTPException, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, EmailStr
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -123,6 +123,14 @@ from fastapi.staticfiles import StaticFiles
 
 # Serve frontend static files from the root URL
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
+
+@app.get("/team")
+async def get_team():
+    team_path = os.path.join(frontend_dir, "team.html")
+    if os.path.exists(team_path):
+        return FileResponse(team_path)
+    raise HTTPException(status_code=404, detail="Team page not found")
+
 if os.path.exists(frontend_dir):
     app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
 

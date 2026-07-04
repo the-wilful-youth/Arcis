@@ -44,6 +44,7 @@ sequenceDiagram
     participant API as FastAPI Gateway (Port 5001)
     participant UC as URL Classifier (LightGBM)
     participant EC as Email Classifier (XGBoost ONNX)
+    participant CS as Confidence Scorer (Weighted)
     participant DNS as Public DNS / WHOIS Servers
 
     User->>API: POST /api/analyze/url (JSON)
@@ -58,7 +59,11 @@ sequenceDiagram
     API->>EC: Parse Sender & Authentication Headers
     EC->>DNS: Query MX, SPF, DKIM, DMARC Status
     DNS-->>EC: DNS Policy Records
+    EC->>UC: Extract & Scan Embedded URLs
+    UC-->>EC: Link Risk Statistics
     EC->>EC: Run Vectorization & XGBoost ONNX Model
+    EC->>CS: Aggregate Scores (ML, Links, Heuristics)
+    CS-->>EC: Normalized Confidence & Risk Level
     EC-->>API: Blended Verdict Score
     API-->>User: JSON Response
 ```
@@ -73,6 +78,8 @@ The codebase is structured cleanly into logical backend, frontend, and extension
 Arcis/
 ├── backend/
 │   ├── main.py                     # FastAPI REST API server (Async, Rate-limited, CORS-enabled)
+│   ├── test_confidence_scorer.py   # Unit tests for the weighted scorer
+│   ├── test_phishing.py            # Restructured integration tests
 │   ├── models/
 │   │   ├── url_phishing_bundle.joblib # LightGBM classifier binary (URLs)
 │   │   └── xgboost_model.onnx         # XGBoost classifier binary (Emails)
@@ -80,7 +87,8 @@ Arcis/
 │   │   └── train_email_model.py    # Training script for Email ML model
 │   ├── services/
 │   │   ├── url_classifier.py       # Feature extraction & classification service (URLs)
-│   │   └── email_classifier.py     # Feature extraction & classification service (Emails)
+│   │   ├── email_classifier.py     # Feature extraction, embedded link scanner & classifier (Emails)
+│   │   └── confidence_scorer.py    # Dynamic weighted confidence scoring & graceful degradation
 ├── frontend/
 │   ├── index.html                  # Premium glassmorphic dashboard UI
 │   ├── style.css                   # Dynamic stylesheet with floating background glows
@@ -252,6 +260,18 @@ Simply open the [index.html](file:///Users/Anurag/Anurag/Projects/Arcis/frontend
   * Accuracy: **94.2%**
   * F1-Score: **0.938**
 * **Inference Runtime Engine**: Powered by `onnxruntime` utilizing single-threaded execution bounds to minimize container scheduling overhead under high concurrent API hit conditions.
+
+### Dynamic Confidence Scorer (Weighted Engine)
+To compute the overall threat index, a dynamic weighted aggregation algorithm evaluates five key telemetry components:
+*   **ML Classifier (35%)**: Evaluates natural language payload structure using XGBoost.
+*   **URL Analysis (30%)**: Real-time extraction and classification of embedded links.
+*   **Sensitive Requests (15%)**: Heuristic detection of financial/credential requests.
+*   **Polite Deceptions (10%)**: Flags generic formal greetings alongside suspicious instructions.
+*   **Short Email Risk (10%)**: Checks for small, direct social engineering templates.
+
+> [!NOTE]
+> **Graceful Degradation**: If one of these checks fails or times out (e.g. WHOIS query limit exceeded or ML session failure), the scorer automatically distributes its weight among the remaining active checks, ensuring the API remains highly responsive.
+
 
 ---
 

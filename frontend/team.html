@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcis — Arcis Development Team</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <style>
+        .team-page-shell {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 24px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .team-page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 60px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+        }
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text-1);
+            padding: 10px 20px;
+            border-radius: var(--r-lg);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateX(-2px);
+        }
+        .team-page-footer {
+            margin-top: auto;
+            padding-top: 60px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-2);
+            border-top: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ambient background -->
+    <div class="bg-canvas" aria-hidden="true">
+        <div class="bg-orb bg-orb--1"></div>
+        <div class="bg-orb bg-orb--2"></div>
+        <div class="bg-orb bg-orb--3"></div>
+        <div class="bg-grid"></div>
+        <div class="bg-noise"></div>
+    </div>
+
+    <div class="team-page-shell">
+        <header class="team-page-header">
+            <div class="topbar__brand" style="padding: 0;">
+                <div class="brand-logo">
+                    <img src="icon.svg" width="28" height="28" alt="Arcis logo">
+                </div>
+                <span class="brand-name">Arcis</span>
+                <span class="brand-badge">TEAM</span>
+            </div>
+            <a href="/" class="back-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                Back to Dashboard
+            </a>
+        </header>
+
+        <main>
+            <div class="scanner-hero" style="text-align: center; margin-bottom: 48px;">
+                <div class="scanner-hero__eyebrow" style="justify-content: center;">
+                    <span class="eyebrow-dot" aria-hidden="true" style="background: var(--blue);"></span>
+                    Arcis Core Engineering
+                </div>
+                <h1 class="scanner-hero__title">Meet the <span class="gradient-text">Developers</span></h1>
+                <p class="scanner-hero__sub" style="margin: 16px auto 0;">The core engineering and security research team powering the Arcis threat intelligence suite.</p>
+            </div>
+
+            <div class="team-grid">
+                <!-- Member 1: Anurag -->
+                <div class="team-card card">
+                    <div class="team-card__image-container">
+                        <img src="img/1.png" alt="Anurag" class="team-card__image">
+                    </div>
+                    <div class="team-card__content">
+                        <h3 class="team-card__name">Anurag</h3>
+
+                        <div class="team-card__links">
+                            <a href="https://github.com/the-wilful-youth" target="_blank" rel="noopener noreferrer" title="GitHub" class="team-link">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                            </a>
+                            <a href="https://www.linkedin.com/in/anuragbhowmick/" target="_blank" rel="noopener noreferrer" title="LinkedIn" class="team-link">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Member 2: Vishal -->
+                <div class="team-card card">
+                    <div class="team-card__image-container">
+                        <img src="img/2.png" alt="Vishal" class="team-card__image">
+                    </div>
+                    <div class="team-card__content">
+                        <h3 class="team-card__name">Vishal</h3>
+
+                        <div class="team-card__links">
+                            <span class="team-card__role" style="font-style: italic; margin-bottom: 0;">Links coming soon</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Member 3: Subrodeep -->
+                <div class="team-card card">
+                    <div class="team-card__image-container">
+                        <img src="img/3.png" alt="Subrodeep" class="team-card__image">
+                    </div>
+                    <div class="team-card__content">
+                        <h3 class="team-card__name">Subrodeep</h3>
+
+                        <div class="team-card__links">
+                            <a href="https://github.com/Subhro1225" target="_blank" rel="noopener noreferrer" title="GitHub" class="team-link">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                            </a>
+                            <a href="https://www.linkedin.com/in/subhrodeep-bhattacharjee/" target="_blank" rel="noopener noreferrer" title="LinkedIn" class="team-link">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Member 4: Priya -->
+                <div class="team-card card">
+                    <div class="team-card__image-container">
+                        <img src="img/4.png" alt="Priya" class="team-card__image">
+                    </div>
+                    <div class="team-card__content">
+                        <h3 class="team-card__name">Priya</h3>
+
+                        <div class="team-card__links">
+                            <a href="https://github.com/priyaghosh77708-cpu" target="_blank" rel="noopener noreferrer" title="GitHub" class="team-link">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Member 5: Soumya -->
+                <div class="team-card card">
+                    <div class="team-card__image-container">
+                        <img src="img/5.png" alt="Soumya" class="team-card__image">
+                    </div>
+                    <div class="team-card__content">
+                        <h3 class="team-card__name">Soumya</h3>
+
+                        <div class="team-card__links">
+                            <a href="https://github.com/soumyayyy" target="_blank" rel="noopener noreferrer" title="GitHub" class="team-link">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                            </a>
+                            <a href="https://www.linkedin.com/in/soumyaa1110" target="_blank" rel="noopener noreferrer" title="LinkedIn" class="team-link">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Member 6: Ananya -->
+                <div class="team-card card">
+                    <div class="team-card__image-container">
+                        <img src="img/6.png" alt="Ananya" class="team-card__image">
+                    </div>
+                    <div class="team-card__content">
+                        <h3 class="team-card__name">Ananya</h3>
+
+                        <div class="team-card__links">
+                            <a href="https://github.com/lyuneth3" target="_blank" rel="noopener noreferrer" title="GitHub" class="team-link">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                            </a>
+                            <a href="https://www.linkedin.com/in/anannya-mohanty-a0015134a" target="_blank" rel="noopener noreferrer" title="LinkedIn" class="team-link">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="team-page-footer">
+            <span class="footer__copy">&copy; 2026 Team Arcis · All Rights Reserved</span>
+        </footer>
+    </div>
+
+</body>
+</html>
