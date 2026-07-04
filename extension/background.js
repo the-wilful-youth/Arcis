@@ -15,7 +15,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         }
 
         // Run background scan
-        fetch('http://localhost:5001/api/analyze/url', {
+        fetch('http://127.0.0.1:5001/api/analyze/url', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -57,7 +57,8 @@ function updateBadge(tabId, riskScore) {
 // Message listener to handle privileged fetch requests bypassing Gmail CSP
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'analyze_email') {
-        fetch('http://localhost:5001/api/analyze/email', {
+        // 1. Analyze the email sender/headers
+        const emailPromise = fetch('http://127.0.0.1:5001/api/analyze/email', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -71,12 +72,70 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 });
             }
             return response.json();
-        })
-        .then(data => {
-            sendResponse({ success: true, data: data });
+        });
+
+        // 2. Scan all extracted embedded links in parallel
+        const linkPromises = (request.links || []).map(url => {
+            return fetch('http://127.0.0.1:5001/api/analyze/url', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url: url })
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('URL API Error');
+                return res.json();
+            })
+            .then(data => ({ url: url, data: data }))
+            .catch(err => ({ url: url, error: err.message }));
+        });
+
+        Promise.all([emailPromise, Promise.all(linkPromises)])
+        .then(([emailResult, linkResults]) => {
+            let highestLinkRisk = 0;
+            const flaggedLinks = [];
+
+            linkResults.forEach(res => {
+                if (res.data) {
+                    const risk = res.data.risk_score_pct || 0;
+                    if (risk > highestLinkRisk) {
+                        highestLinkRisk = risk;
+                    }
+                    if (res.data.is_phishing || risk >= 50) {
+                        flaggedLinks.push({ url: res.url, risk: risk, brand: res.data.brand_alert });
+                    }
+                }
+            });
+
+            // If a link in the email is more dangerous than the sender, elevate the overall threat level
+            if (highestLinkRisk > emailResult.risk_score_pct) {
+                emailResult.risk_score_pct = highestLinkRisk;
+                emailResult.is_phishing = emailResult.risk_score_pct >= 50;
+            }
+
+            // Append CC addresses to reasons list
+            if (request.cc && request.cc.length > 0) {
+                emailResult.details.reasons.push(`CC: ${request.cc.join(', ')}`);
+            }
+
+            // Append link results to findings
+            if (flaggedLinks.length > 0) {
+                flaggedLinks.forEach(fl => {
+                    let msg = `🚨 Dangerous Link: ${fl.url.substring(0, 35)}... (Risk: ${fl.risk.toFixed(0)}%)`;
+                    if (fl.brand && fl.brand.impersonated) {
+                        msg += ` imitating ${fl.brand.brand.toUpperCase()}`;
+                    }
+                    emailResult.details.reasons.push(msg);
+                });
+            } else if (request.links && request.links.length > 0) {
+                emailResult.details.reasons.push(`Checked ${request.links.length} embedded link(s) — all links are clean.`);
+            }
+
+            sendResponse({ success: true, data: emailResult });
         })
         .catch(err => {
-            console.error('Background Email Scan failed:', err);
+            console.error('Background Email & Link Scan failed:', err);
             sendResponse({ success: false, error: err.message });
         });
         return true; // Keep message channel open for async response

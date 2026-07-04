@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         resultState.classList.add('hidden');
 
         try {
-            const response = await fetch('http://localhost:5001/api/analyze/url', {
+            const response = await fetch('http://127.0.0.1:5001/api/analyze/url', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -165,7 +165,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         emailResultState.classList.add('hidden');
 
         try {
-            const response = await fetch('http://localhost:5001/api/analyze/email', {
+            const response = await fetch('http://127.0.0.1:5001/api/analyze/email', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

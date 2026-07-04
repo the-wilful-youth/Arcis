@@ -275,10 +275,56 @@
 
     if (!subjectEl && !senderEl && !bodyEl) return null;
 
+    // 1. Extract CC recipients
+    const ccEmails = [];
+    const ccContainer = document.querySelector('.az9'); // Gmail CC container class
+    if (ccContainer) {
+      const ccSpans = ccContainer.querySelectorAll('[email]');
+      ccSpans.forEach(span => {
+        const email = span.getAttribute('email');
+        if (email && !ccEmails.includes(email)) {
+          ccEmails.push(email.trim().toLowerCase());
+        }
+      });
+    } else {
+      // Fallback: look for spans with class 'hb' or elements containing CC
+      const ccElements = document.querySelectorAll('span.hb [email], .hb [email]');
+      ccElements.forEach(el => {
+        const email = el.getAttribute('email');
+        if (email && !ccEmails.includes(email)) {
+          ccEmails.push(email.trim().toLowerCase());
+        }
+      });
+    }
+
+    // 2. Extract links in the email body
+    const links = [];
+    if (bodyEl) {
+      const anchors = bodyEl.querySelectorAll('a[href]');
+      anchors.forEach(a => {
+        const href = a.getAttribute('href');
+        if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+          // Resolve Google redirection links if necessary
+          let targetUrl = href;
+          if (href.includes('google.com/url?q=')) {
+            try {
+              const urlObj = new URL(href);
+              targetUrl = urlObj.searchParams.get('q') || href;
+            } catch(e) {}
+          }
+          if (!links.includes(targetUrl)) {
+            links.push(targetUrl);
+          }
+        }
+      });
+    }
+
     return {
       subject : subjectEl ? subjectEl.textContent.trim() : '',
       sender  : senderEl  ? (senderEl.getAttribute('email') || senderEl.textContent.trim()) : '',
-      body    : bodyEl    ? bodyEl.innerText.trim().slice(0, 2000) : ''   // cap at 2 KB
+      body    : bodyEl    ? bodyEl.innerText.trim().slice(0, 2000) : '',   // cap at 2 KB
+      cc      : ccEmails,
+      links   : links
     };
   }
 
@@ -305,7 +351,9 @@
           spf    : 'none',
           dkim   : 'none',
           dmarc  : 'none'
-        }
+        },
+        cc: emailData.cc,
+        links: emailData.links
       }, response => {
         let data;
         if (response && response.success) {
