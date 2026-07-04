@@ -108,6 +108,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 }
             });
 
+            // Map link results to a list for the report page
+            const scannedLinksList = linkResults.map(res => {
+                return {
+                    url: res.url,
+                    risk: res.data ? (res.data.risk_score_pct || 0) : 0,
+                    is_phishing: res.data ? (res.data.is_phishing || false) : false
+                };
+            });
+
             // If a link in the email is more dangerous than the sender, elevate the overall threat level
             if (highestLinkRisk > emailResult.risk_score_pct) {
                 emailResult.risk_score_pct = highestLinkRisk;
@@ -132,6 +141,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 emailResult.details.reasons.push(`Checked ${request.links.length} embedded link(s) — all links are clean.`);
             }
 
+            emailResult.scanned_links = scannedLinksList;
             sendResponse({ success: true, data: emailResult });
         })
         .catch(err => {

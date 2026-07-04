@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcis — Detailed Scan Report</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <style>
+        .report-container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 24px;
+        }
+        .report-header {
+            margin-bottom: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .report-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 2fr;
+            gap: 24px;
+        }
+        .report-meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .report-meta-item {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            padding: 12px;
+        }
+        .report-meta-label {
+            font-size: 11px;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+        .report-meta-val {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-1);
+            word-break: break-all;
+        }
+        .link-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+        .link-table th {
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-3);
+            border-bottom: 1px solid var(--border-strong);
+        }
+        .link-table td {
+            padding: 12px;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-2);
+        }
+        .link-url {
+            font-family: 'JetBrains Mono', monospace;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .badge-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-status--safe { background: rgba(16,185,129,0.12); color: var(--safe); }
+        .badge-status--warn { background: rgba(245,158,11,0.12); color: var(--warn); }
+        .badge-status--danger { background: rgba(239,68,68,0.12); color: var(--danger); }
+        
+        .no-report-card {
+            text-align: center;
+            padding: 64px 32px;
+            margin-top: 60px;
+        }
+        .no-report-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.4;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ambient background -->
+    <div class="bg-canvas" aria-hidden="true">
+        <div class="bg-orb bg-orb--1"></div>
+        <div class="bg-orb bg-orb--2"></div>
+        <div class="bg-orb bg-orb--3"></div>
+        <div class="bg-grid"></div>
+        <div class="bg-noise"></div>
+    </div>
+
+    <div class="app-shell" style="height: auto; min-height: 100vh;">
+
+        <!-- ═══════════════════════════ NAV ═══════════════════════════ -->
+        <header class="topbar">
+            <div class="topbar__brand">
+                <div class="brand-logo">
+                    <img src="icon.svg" width="28" height="28" alt="Arcis logo" aria-hidden="true">
+                </div>
+                <span class="brand-name">Arcis</span>
+                <span class="brand-badge">THREAT INTELLIGENCE</span>
+            </div>
+            <div class="topbar__actions">
+                <a href="/" class="btn-upgrade" style="text-decoration: none;">Launch Dashboard</a>
+            </div>
+        </header>
+
+        <!-- Main Report Workspace -->
+        <main id="main-content" class="report-container">
+            <!-- Loading state by default -->
+            <div class="card no-report-card" id="state-loading">
+                <div class="spinner" style="margin: 0 auto 16px auto; width: 32px; height: 32px;"></div>
+                <h2>Parsing Threat Report...</h2>
+                <p style="color: var(--text-3); margin-top: 8px;">Decompressing and parsing payload data.</p>
+            </div>
+
+            <!-- Error state -->
+            <div class="card no-report-card hidden" id="state-error">
+                <div class="no-report-icon">⚠️</div>
+                <h2>No Report Loaded</h2>
+                <p style="color: var(--text-3); margin-top: 8px; max-width: 400px; margin-left: auto; margin-right: auto;">Please execute a scan in the browser extension and click "See Full Report" to load details.</p>
+                <a href="/" class="btn-clear" style="margin-top: 24px; display: inline-flex; text-decoration: none;">Go to Dashboard</a>
+            </div>
+
+            <!-- Loaded Report View -->
+            <div class="hidden" id="report-view">
+                <div class="report-header">
+                    <div>
+                        <div class="scanner-hero__eyebrow" style="margin-bottom: 8px;">
+                            <span class="eyebrow-dot eyebrow-dot--violet"></span>
+                            Gmail Threat Analysis Report
+                        </div>
+                        <h1 class="scanner-hero__title" style="text-align: left; font-size: 32px; margin: 0;">Threat Details</h1>
+                    </div>
+                </div>
+
+                <div class="report-grid">
+                    <!-- Left Column: Gauge and Key Metrics -->
+                    <div class="flex flex-col gap-4">
+                        <div class="card card--gauge" style="padding: 32px 24px;">
+                            <div class="card__header" style="justify-content: center; margin-bottom: 16px;">
+                                <div class="card__badge" id="report-verdict-badge">ANALYZING</div>
+                            </div>
+                            <div class="gauge-ring-wrap" style="margin: 0 auto 16px auto;">
+                                <svg class="gauge-ring" width="200" height="200" viewBox="0 0 200 200">
+                                    <circle class="gauge-ring__track" cx="100" cy="100" r="80" />
+                                    <circle id="report-risk-progress" class="gauge-ring__fill" cx="100" cy="100" r="80" style="stroke-dasharray: 502.65; stroke-dashoffset: 502.65;" />
+                                </svg>
+                                <div class="gauge-ring__inner">
+                                    <span id="report-risk-percentage" class="gauge-pct">0%</span>
+                                    <span id="report-risk-label" class="gauge-label">SAFE</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Scraped Metadata Details -->
+                        <div class="card">
+                            <div class="card__header">
+                                <h3 class="card__title">Scraped Metadata</h3>
+                            </div>
+                            <div class="report-meta-grid">
+                                <div class="report-meta-item" style="grid-column: span 2;">
+                                    <div class="report-meta-label">Subject</div>
+                                    <div class="report-meta-val" id="report-subject">—</div>
+                                </div>
+                                <div class="report-meta-item">
+                                    <div class="report-meta-label">Sender</div>
+                                    <div class="report-meta-val" id="report-sender">—</div>
+                                </div>
+                                <div class="report-meta-item">
+                                    <div class="report-meta-label">CC Recipients</div>
+                                    <div class="report-meta-val" id="report-cc">None</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Details list and Link checker results -->
+                    <div class="flex flex-col gap-4">
+                        <!-- Risk Signals -->
+                        <div class="card">
+                            <div class="card__header">
+                                <h3 class="card__title">Detected Signals</h3>
+                            </div>
+                            <div id="report-signals-list" class="indicator-feed" style="max-height: 250px; overflow-y: auto;">
+                                <!-- Signals inject here -->
+                            </div>
+                        </div>
+
+                        <!-- Link Scan Results Table -->
+                        <div class="card">
+                            <div class="card__header">
+                                <h3 class="card__title">Scanned Hyperlinks</h3>
+                            </div>
+                            <div style="overflow-x: auto; width: 100%;">
+                                <table class="link-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Target Link</th>
+                                            <th>Threat Score</th>
+                                            <th>Verdict</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="report-links-tbody">
+                                        <!-- Scanned links list -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Email Body Snippet -->
+                        <div class="card">
+                            <div class="card__header">
+                                <h3 class="card__title">Body Preview</h3>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.2); padding: 14px; border-radius: var(--r-md); border: 1px solid var(--border); max-height: 150px; overflow-y: auto;">
+                                <p id="report-body" style="font-size: 13px; color: var(--text-2); white-space: pre-wrap; line-height: 1.5; font-family: inherit;">—</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script>
+        (function() {
+            const CIRCUMFERENCE = 2 * Math.PI * 80; // 502.65
+            
+            const stateLoading = document.getElementById('state-loading');
+            const stateError = document.getElementById('state-error');
+            const reportView = document.getElementById('report-view');
+
+            const verdictBadge = document.getElementById('report-verdict-badge');
+            const riskProgress = document.getElementById('report-risk-progress');
+            const riskPct = document.getElementById('report-risk-percentage');
+            const riskLabel = document.getElementById('report-risk-label');
+
+            const reportSubject = document.getElementById('report-subject');
+            const reportSender = document.getElementById('report-sender');
+            const reportCc = document.getElementById('report-cc');
+            const reportBody = document.getElementById('report-body');
+
+            const signalsList = document.getElementById('report-signals-list');
+            const linksTbody = document.getElementById('report-links-tbody');
+
+            // Parse URL query parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const dataParam = urlParams.get('data');
+
+            if (!dataParam) {
+                stateLoading.classList.add('hidden');
+                stateError.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                // Decode Base64 report details
+                const decodedData = atob(dataParam);
+                const report = JSON.parse(decodedData);
+
+                // Populate Text Metadata
+                reportSubject.textContent = report.subject || '(No Subject)';
+                reportSender.textContent = report.sender || 'Unknown';
+                reportCc.textContent = (report.cc && report.cc.length > 0) ? report.cc.join(', ') : 'None';
+                reportBody.textContent = report.body || '(Empty Body)';
+
+                // Render Gauge Status
+                const risk = report.risk_score_pct || 0;
+                riskPct.textContent = `${risk.toFixed(1)}%`;
+                const offset = CIRCUMFERENCE - (risk / 100) * CIRCUMFERENCE;
+                riskProgress.style.strokeDashoffset = offset;
+
+                let color, badgeText, statusClass;
+                if (risk < 30) {
+                    color = 'var(--safe)';
+                    badgeText = 'SAFE';
+                    statusClass = 'badge-status--safe';
+                    verdictBadge.style.background = 'rgba(16,185,129,0.12)';
+                    verdictBadge.style.color = 'var(--safe)';
+                } else if (risk < 70) {
+                    color = 'var(--warn)';
+                    badgeText = 'SUSPICIOUS';
+                    statusClass = 'badge-status--warn';
+                    verdictBadge.style.background = 'rgba(245,158,11,0.12)';
+                    verdictBadge.style.color = 'var(--warn)';
+                } else {
+                    color = 'var(--danger)';
+                    badgeText = 'DANGEROUS';
+                    statusClass = 'badge-status--danger';
+                    verdictBadge.style.background = 'rgba(239,68,68,0.12)';
+                    verdictBadge.style.color = 'var(--danger)';
+                }
+
+                verdictBadge.textContent = badgeText;
+                riskProgress.style.stroke = color;
+                riskLabel.textContent = badgeText;
+                riskLabel.style.color = color;
+
+                // Render Signals
+                signalsList.innerHTML = '';
+                const reasons = report.reasons || [];
+                if (reasons.length === 0) {
+                    const div = document.createElement('div');
+                    div.className = 'indicator-item';
+                    div.innerHTML = `<span class="indicator-dot" style="background: var(--safe)"></span><span class="indicator-text">No significant threats or anomalies detected.</span>`;
+                    signalsList.appendChild(div);
+                } else {
+                    reasons.forEach((reason, i) => {
+                        const isDanger = reason.includes('🚨') || reason.includes('failed') || reason.includes('suspicious') || reason.includes('overdue') || reason.includes('suspend');
+                        const dotColor = isDanger ? 'var(--danger)' : 'var(--warn)';
+                        const div = document.createElement('div');
+                        div.className = 'indicator-item';
+                        div.style.animationDelay = `${i * 50}ms`;
+                        div.innerHTML = `<span class="indicator-dot" style="background: ${dotColor}"></span><span class="indicator-text">${reason}</span>`;
+                        signalsList.appendChild(div);
+                    });
+                }
+
+                // Render Scanned Links Table
+                linksTbody.innerHTML = '';
+                const links = report.links || [];
+                if (links.length === 0) {
+                    linksTbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-3);">No links extracted from the email.</td></tr>`;
+                } else {
+                    links.forEach(link => {
+                        const tr = document.createElement('tr');
+                        const linkUrl = link.url;
+                        const score = link.risk !== undefined ? link.risk : 0;
+                        
+                        let badgeClass, verdictText;
+                        if (score < 30) {
+                            badgeClass = 'badge-status--safe';
+                            verdictText = 'SAFE';
+                        } else if (score < 70) {
+                            badgeClass = 'badge-status--warn';
+                            verdictText = 'SUSPICIOUS';
+                        } else {
+                            badgeClass = 'badge-status--danger';
+                            verdictText = 'DANGEROUS';
+                        }
+
+                        tr.innerHTML = `
+                            <td><div class="link-url" title="${linkUrl}">${linkUrl}</div></td>
+                            <td><span style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">${score.toFixed(1)}%</span></td>
+                            <td><span class="badge-status ${badgeClass}">${verdictText}</span></td>
+                        `;
+                        linksTbody.appendChild(tr);
+                    });
+                }
+
+                // Show main view
+                stateLoading.classList.add('hidden');
+                reportView.classList.remove('hidden');
+
+            } catch (err) {
+                console.error('Failed to parse report details:', err);
+                stateLoading.classList.add('hidden');
+                stateError.classList.remove('hidden');
+            }
+        })();
+    </script>
+</body>
+</html>

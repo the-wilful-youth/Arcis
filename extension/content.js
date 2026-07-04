@@ -362,11 +362,11 @@
           console.warn('API fetch failed or was blocked, falling back to demo mode:', response ? response.error : 'No response');
           data = buildDemoVerdict(emailData);
         }
-        renderVerdict(data);
+        renderVerdict(data, emailData);
       });
     } catch (_) {
       /* Backend offline – show demo verdict so UI still demonstrates */
-      renderVerdict(buildDemoVerdict(emailData));
+      renderVerdict(buildDemoVerdict(emailData), emailData);
     } finally {
       isScanning = false;
     }
@@ -388,11 +388,11 @@
     };
   }
 
-  function renderVerdict(data) {
+  function renderVerdict(data, emailData) {
     const risk = data.risk_score_pct || 0;
     lastVerdict = data;
 
-    riskPct.textContent   = `${risk}%`;
+    riskPct.textContent   = `${risk.toFixed(1)}%`;
     riskFill.style.width  = `${risk}%`;
 
     /* Clear old verdict classes */
@@ -426,6 +426,29 @@
       const li = document.createElement('li');
       li.textContent = 'No specific signals detected.';
       findingsList.appendChild(li);
+    }
+
+    // Build Base64 report payload to pass securely to the localhost dashboard page
+    if (emailData) {
+      const reportPayload = {
+        subject: emailData.subject,
+        sender: emailData.sender,
+        body: emailData.body,
+        cc: emailData.cc || [],
+        risk_score_pct: risk,
+        reasons: reasons,
+        links: data.scanned_links || (emailData.links || []).map(url => ({ url: url, risk: 0 }))
+      };
+      
+      try {
+        const base64Data = btoa(unescape(encodeURIComponent(JSON.stringify(reportPayload))));
+        const reportLink = root.querySelector('#arcis-more-link');
+        if (reportLink) {
+          reportLink.href = `http://127.0.0.1:5001/report.html?data=${base64Data}`;
+        }
+      } catch (err) {
+        console.error('Failed to encode report payload:', err);
+      }
     }
 
     showState('result');
