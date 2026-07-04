@@ -12,6 +12,7 @@ import dns.resolver
 import tldextract
 import whois
 from concurrent.futures import ThreadPoolExecutor
+import urllib.request
 
 # Load the model bundle
 BUNDLE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models", "url_phishing_bundle.joblib")
@@ -50,7 +51,24 @@ def levenshtein_distance(s1, s2):
         
     return previous_row[-1]
 
-def check_brand_impersonation(domain: str, registered_domain: str) -> dict:
+def resolve_redirects(url: str, timeout=1.0) -> str:
+    """Resolve redirecting/shortened URLs to their final destination URL."""
+    if not url:
+        return url
+    url_to_check = url.strip()
+    if not re.match(r'^[a-zA-Z]+://', url_to_check):
+        url_to_check = 'http://' + url_to_check
+    try:
+        req = urllib.request.Request(
+            url_to_check,
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ArcisLinkChecker/1.0'}
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            return response.geturl()
+    except Exception:
+        return url
+
+def check_brand_impersonation(hostname: str, domain: str, registered_domain: str) -> dict:
     """Check if the domain is impersonating trusted brand names (typosquatting or keyword hijacking)."""
     if domain and domain.startswith("xn--"):
         return {"impersonated": True, "brand": "Punycode (IDN)", "type": "IDN Homograph Attack"}
@@ -78,6 +96,7 @@ def check_brand_impersonation(domain: str, registered_domain: str) -> dict:
     
     reg_parts = registered_domain.split('.')
     reg_name = reg_parts[0] if reg_parts else ""
+    hostname_lower = (hostname or domain or "").lower()
     
     # 1. Exact Match to official domain
     for brand, official in brand_domains.items():
@@ -86,7 +105,7 @@ def check_brand_impersonation(domain: str, registered_domain: str) -> dict:
             
     # 2. Contains brand name but is not official
     for brand, official in brand_domains.items():
-        if brand in domain.lower() and registered_domain.lower() != official:
+        if brand in hostname_lower and registered_domain.lower() != official:
             return {"impersonated": True, "brand": brand, "type": "Keyword Impersonation"}
             
     # 3. Typosquatting / edit distance (dist is 1 or 2)
@@ -379,13 +398,27 @@ def extract_features(raw_url: str) -> dict:
 
 def predict_url(url: str) -> dict:
     """Predict if a URL is phishing and return risk metrics and feature importances."""
-    feats = extract_features(url)
+    resolved_url = resolve_redirects(url)
+    feats = extract_features(resolved_url)
     
-    # Check Brand Impersonation / Typosquatting
-    parsed = urlparse(url if "://" in url else "http://" + url)
-    ext = tldextract.extract(url if "://" in url else "http://" + url)
-    domain = ext.domain + ('.' + ext.suffix if ext.suffix else '')
-    brand_check = check_brand_impersonation(domain, ext.registered_domain)
+    # Check Brand Impersonation / Typosquatting on both original and resolved URLs
+    parsed_orig = urlparse(url if "://" in url else "http://" + url)
+    ext_orig = tldextract.extract(url if "://" in url else "http://" + url)
+    domain_orig = ext_orig.domain + ('.' + ext_orig.suffix if ext_orig.suffix else '')
+    brand_check_orig = check_brand_impersonation(parsed_orig.hostname, domain_orig, ext_orig.registered_domain)
+    
+    parsed_res = urlparse(resolved_url if "://" in resolved_url else "http://" + resolved_url)
+    ext_res = tldextract.extract(resolved_url if "://" in resolved_url else "http://" + resolved_url)
+    domain_res = ext_res.domain + ('.' + ext_res.suffix if ext_res.suffix else '')
+    brand_check_res = check_brand_impersonation(parsed_res.hostname, domain_res, ext_res.registered_domain)
+    
+    # Combine brand checks: prioritize impersonated over official
+    if brand_check_orig.get("impersonated") or brand_check_res.get("impersonated"):
+        brand_check = brand_check_orig if brand_check_orig.get("impersonated") else brand_check_res
+    elif brand_check_orig.get("official") or brand_check_res.get("official"):
+        brand_check = brand_check_orig if brand_check_orig.get("official") else brand_check_res
+    else:
+        brand_check = brand_check_orig
     
     df_row = pd.Series(feats).reindex(features_list).fillna(0)
     scaled_df = pd.DataFrame([df_row], columns=features_list)
@@ -419,6 +452,7 @@ def predict_url(url: str) -> dict:
         
     return {
         "url": url,
+        "resolved_url": resolved_url,
         "is_phishing": is_phishing,
         "risk_score_pct": round(prob * 100, 2),
         "brand_alert": brand_check,

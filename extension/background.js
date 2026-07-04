@@ -112,6 +112,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             const scannedLinksList = linkResults.map(res => {
                 return {
                     url: res.url,
+                    resolved_url: res.data ? (res.data.resolved_url || res.url) : res.url,
                     risk: res.data ? (res.data.risk_score_pct || 0) : 0,
                     is_phishing: res.data ? (res.data.is_phishing || false) : false
                 };

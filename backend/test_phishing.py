@@ -11,7 +11,8 @@ from services.email_classifier import predict_sender_email
 # Test cases
 url_test_cases = [
     {"url": "https://www.google.com", "expected": False},
-    {"url": "https://www.paypa1.com/login", "expected": True}
+    {"url": "https://www.paypa1.com/login", "expected": True},
+    {"url": "http://paypal.com.secure-update.com", "expected": True}
 ]
 
 email_test_cases = [

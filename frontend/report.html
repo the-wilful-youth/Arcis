@@ -280,8 +280,8 @@
             }
 
             try {
-                // Decode Base64 report details
-                const decodedData = atob(dataParam);
+                // Decode Base64 report details safely supporting UTF-8
+                const decodedData = decodeURIComponent(escape(atob(dataParam)));
                 const report = JSON.parse(decodedData);
 
                 // Populate Text Metadata
@@ -351,6 +351,7 @@
                     links.forEach(link => {
                         const tr = document.createElement('tr');
                         const linkUrl = link.url;
+                        const resolvedUrl = link.resolved_url || linkUrl;
                         const score = link.risk !== undefined ? link.risk : 0;
                         
                         let badgeClass, verdictText;
@@ -365,8 +366,17 @@
                             verdictText = 'DANGEROUS';
                         }
 
+                        let targetColContent = `<div class="link-url" title="${linkUrl}">${linkUrl}</div>`;
+                        if (resolvedUrl && resolvedUrl !== linkUrl) {
+                            targetColContent += `
+                                <div style="font-size: 11px; opacity: 0.7; color: var(--text-3); word-break: break-all; margin-top: 4px;">
+                                    ↳ Redirects to: <span style="font-family: 'JetBrains Mono', monospace; font-weight: 500;">${resolvedUrl}</span>
+                                </div>
+                            `;
+                        }
+
                         tr.innerHTML = `
-                            <td><div class="link-url" title="${linkUrl}">${linkUrl}</div></td>
+                            <td>${targetColContent}</td>
                             <td><span style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">${score.toFixed(1)}%</span></td>
                             <td><span class="badge-status ${badgeClass}">${verdictText}</span></td>
                         `;

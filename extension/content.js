@@ -444,7 +444,7 @@
         const base64Data = btoa(unescape(encodeURIComponent(JSON.stringify(reportPayload))));
         const reportLink = root.querySelector('#arcis-more-link');
         if (reportLink) {
-          reportLink.href = `http://127.0.0.1:5001/report.html?data=${base64Data}`;
+          reportLink.href = `http://127.0.0.1:5001/report.html?data=${encodeURIComponent(base64Data)}`;
         }
       } catch (err) {
         console.error('Failed to encode report payload:', err);
