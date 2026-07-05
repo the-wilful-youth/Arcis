@@ -67,7 +67,19 @@ def score_analysis_confidence(
       - Graceful degradation when sub-components fail (redistributes weights)
     """
     scorer = ConfidenceScorer()
-    weights = custom_weights if custom_weights else scorer.weights
+    if custom_weights is not None:
+        # Validate keys exactly match expected components
+        if set(custom_weights.keys()) != set(scorer.weights.keys()):
+            raise ValueError(f"Custom weights keys must match {list(scorer.weights.keys())}")
+        # Validate values are floats in [0.0, 1.0] and sum is ~1.0
+        for k, v in custom_weights.items():
+            if not isinstance(v, (int, float)) or v < 0.0 or v > 1.0:
+                raise ValueError(f"Custom weight value for {k} must be a float between 0.0 and 1.0")
+        if not (0.99 <= sum(custom_weights.values()) <= 1.01):
+            raise ValueError("The sum of custom weights must be approximately 1.0")
+        weights = custom_weights
+    else:
+        weights = scorer.weights
     
     component_scores: Dict[str, float] = {}
     total_weight_used = 0.0
@@ -88,20 +100,23 @@ def score_analysis_confidence(
         
         # 1. Evaluate Machine Learning Classifier Output
         if component == 'ml_classifier':
-            if data.get('classification') == 'phishing':
-                score = data.get('confidence', 1.0)
-            else:
-                # If legitimate, treat confidence as distance from phishing (low threat)
-                score = 0.0
+            # Use continuous ML probability if available, fallback to classification-based binary logic
+            score = data.get('confidence', 0.0)
+            if not isinstance(score, (int, float)):
+                score = 1.0 if data.get('classification') == 'phishing' else 0.0
         
         # 2. Evaluate URL Analysis Output
         elif component == 'url_analysis':
-            summary = data.get('summary', {})
-            total_urls = summary.get('total_urls', 0)
-            if total_urls > 0:
-                bad_urls = summary.get('suspicious_urls', 0) + summary.get('high_risk_urls', 0)
-                # Ratio of malicious links to total links, bounded at 1.0
-                score = min(1.0, bad_urls / total_urls)
+            # Use the actual maximum risk score of any embedded URL if available
+            if isinstance(data, dict) and 'max_risk_score' in data:
+                score = data.get('max_risk_score', 0.0)
+            else:
+                summary = data.get('summary', {})
+                total_urls = summary.get('total_urls', 0)
+                if total_urls > 0:
+                    bad_urls = summary.get('suspicious_urls', 0) + summary.get('high_risk_urls', 0)
+                    # Ratio of malicious links to total links, bounded at 1.0
+                    score = min(1.0, bad_urls / total_urls)
                 
         # 3. Evaluate Natural Language Processing (NLP) / Heuristic Outputs
         elif component in ['sensitive_request', 'polite_request', 'short_email_risk']:
@@ -123,12 +138,12 @@ def score_analysis_confidence(
     # Classify Risk Level based on thresholds
     if overall_confidence < 0.3:
         risk_level = 'low'
-    elif overall_confidence < 0.7:
+    elif overall_confidence < 0.5:
         risk_level = 'medium'
     else:
         risk_level = 'high'
         
-    is_phishing = overall_confidence >= 0.7
+    is_phishing = overall_confidence >= 0.5
     reasoning = (
         f"Analysis finalized using {len(component_scores)} operational checks. "
         f"Aggregated threat confidence reached {overall_confidence * 100:.1f}%."

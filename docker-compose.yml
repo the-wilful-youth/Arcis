@@ -9,7 +9,9 @@ services:
       - "5001:5001"
     environment:
       - PORT=5001
-      - FLASK_ENV=production
+      - ENV=production
+      - ARCIS_ALLOWED_ORIGINS=https://arcis-dvgq.onrender.com
+      - ARCIS_API_KEY=${ARCIS_API_KEY}   # Set this in your shell environment or a .env file — never hardcode
 
   frontend:
     image: nginx:alpine

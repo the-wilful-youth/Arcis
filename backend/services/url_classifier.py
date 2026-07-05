@@ -13,6 +13,16 @@ import tldextract
 import whois
 from concurrent.futures import ThreadPoolExecutor
 import urllib.request
+import ipaddress
+
+def is_private_ip(ip_str):
+    if not ip_str:
+        return False
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        return ip.is_private or ip.is_loopback or ip.is_link_local
+    except Exception:
+        return False
 
 # Load the model bundle
 BUNDLE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models", "url_phishing_bundle.joblib")
@@ -51,8 +61,29 @@ def levenshtein_distance(s1, s2):
         
     return previous_row[-1]
 
+class SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, hdrs, newurl):
+        try:
+            from urllib.parse import urlparse
+            import socket
+            parsed = urlparse(newurl)
+            if parsed.scheme not in ('http', 'https'):
+                raise urllib.error.HTTPError(newurl, 400, "SSRF: Blocked unsafe scheme", hdrs, fp)
+            hostname = parsed.hostname
+            if hostname:
+                ips = socket.getaddrinfo(hostname, None)
+                for item in ips:
+                    ip = item[4][0]
+                    if is_private_ip(ip):
+                        raise urllib.error.HTTPError(newurl, 400, f"SSRF: Blocked redirection to private IP {ip}", hdrs, fp)
+        except Exception as e:
+            # Block redirection
+            raise urllib.error.HTTPError(newurl, 400, f"SSRF: Redirect validation failed: {str(e)}", hdrs, fp)
+        
+        return super().redirect_request(req, fp, code, msg, hdrs, newurl)
+
 def resolve_redirects(url: str, timeout=1.0) -> str:
-    """Resolve redirecting/shortened URLs to their final destination URL."""
+    """Resolve redirecting/shortened URLs to their final destination URL securely, blocking SSRF."""
     if not url:
         return url
     url_to_check = url.strip()
@@ -62,18 +93,30 @@ def resolve_redirects(url: str, timeout=1.0) -> str:
     # Restrict scheme to http/https to prevent local file disclosure (SSRF)
     try:
         from urllib.parse import urlparse
+        import socket
         parsed = urlparse(url_to_check)
         if parsed.scheme not in ('http', 'https'):
             return url
+            
+        # Prevent SSRF on initial request before fetch
+        hostname = parsed.hostname
+        if hostname:
+            ips = socket.getaddrinfo(hostname, None)
+            for item in ips:
+                ip = item[4][0]
+                if is_private_ip(ip):
+                    return url
     except Exception:
         return url
 
     try:
+        # Use a secure opener that intercepts redirect responses
+        opener = urllib.request.build_opener(SafeRedirectHandler())
         req = urllib.request.Request(
             url_to_check,
             headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ArcisLinkChecker/1.0'}
         )
-        with urllib.request.urlopen(req, timeout=timeout) as response:  # nosec B310
+        with opener.open(req, timeout=timeout) as response:
             return response.geturl()
     except Exception:
         return url
@@ -101,7 +144,10 @@ def check_brand_impersonation(hostname: str, domain: str, registered_domain: str
         'office365': 'office.com', 'outlook': 'outlook.com', 'onedrive': 'onedrive.live.com',
         'whatsapp': 'whatsapp.com', 'telegram': 'telegram.org', 'snapchat': 'snapchat.com',
         'tiktok': 'tiktok.com', 'roblox': 'roblox.com', 'spotify': 'spotify.com',
-        'icloud': 'icloud.com', 'xfinity': 'xfinity.com', 'att': 'att.com', 'verizon': 'verizon.com'
+        'icloud': 'icloud.com', 'xfinity': 'xfinity.com', 'att': 'att.com', 'verizon': 'verizon.com',
+        'paytm': 'paytm.com', 'flipkart': 'flipkart.com', 'deutschebank': 'db.com',
+        'hdfc': 'hdfcbank.com', 'sbi': 'sbi.co.in', 'icici': 'icicibank.com',
+        'grab': 'grab.com', 'lazada': 'lazada.com', 'mercadolibre': 'mercadolibre.com'
     }
     
     reg_parts = registered_domain.split('.')
@@ -162,6 +208,9 @@ def check_brand_impersonation(hostname: str, domain: str, registered_domain: str
     for brand, official in brand_domains.items():
         if len(reg_name) < 4:
             continue
+        # Pre-filter: if length difference is greater than 2, Levenshtein distance cannot be <= 2.
+        if abs(len(reg_name) - len(brand)) > 2:
+            continue
         dist = levenshtein_distance(reg_name.lower(), brand)
         if 0 < dist <= 2:
             return {"impersonated": True, "brand": brand, "type": "Typosquatting / Fake Domain"}
@@ -170,17 +219,20 @@ def check_brand_impersonation(hostname: str, domain: str, registered_domain: str
 
 # --- Cache Implementation ---
 class DomainResolverCache:
-    """Thread-safe TTL cache for domain lookup metrics."""
-    def __init__(self, ttl_seconds=3600):
+    """Thread-safe LRU/FIFO TTL cache for domain lookup metrics."""
+    def __init__(self, ttl_seconds=3600, max_size=10000):
         self.cache = {}
         self.lock = threading.Lock()
         self.ttl = ttl_seconds
+        self.max_size = max_size
         
     def get(self, domain):
         with self.lock:
             if domain in self.cache:
                 entry = self.cache[domain]
                 if time.time() - entry["timestamp"] < self.ttl:
+                    # Move to end (LRU behavior)
+                    self.cache[domain] = self.cache.pop(domain)
                     return entry["data"]
                 else:
                     del self.cache[domain]
@@ -188,12 +240,17 @@ class DomainResolverCache:
         
     def set(self, domain, data):
         with self.lock:
+            if domain in self.cache:
+                del self.cache[domain]
+            elif len(self.cache) >= self.max_size:
+                oldest = next(iter(self.cache))
+                del self.cache[oldest]
             self.cache[domain] = {
                 "timestamp": time.time(),
                 "data": data
             }
 
-domain_cache = DomainResolverCache(ttl_seconds=86400)  # 24 hours cache
+domain_cache = DomainResolverCache(ttl_seconds=3600, max_size=10000)  # 1 hour cache, max 10k entries
 
 def get_asn(ip):
     """Retrieve ASN using Cymru DNS TXT record lookup."""
@@ -212,16 +269,7 @@ def get_asn(ip):
         pass
     return -1
 
-import ipaddress
 
-def is_private_ip(ip_str):
-    if not ip_str:
-        return False
-    try:
-        ip = ipaddress.ip_address(ip_str)
-        return ip.is_private or ip.is_loopback or ip.is_link_local
-    except Exception:
-        return False
 
 # --- Concurrent Lookups ---
 def lookup_response_time(hostname, resolved_ip=None):
@@ -297,8 +345,9 @@ def lookup_whois(registered_domain):
             pass
     return time_domain_activation, time_domain_expiration
 
-# Create a global thread pool to avoid thread creation overhead
-global_executor = ThreadPoolExecutor(max_workers=30)
+# Create global thread pools to avoid thread creation overhead and isolate fast/slow lookups
+dns_executor = ThreadPoolExecutor(max_workers=8)
+whois_executor = ThreadPoolExecutor(max_workers=4)
 
 def resolve_domain_metrics(hostname, registered_domain):
     results = {}
@@ -307,10 +356,10 @@ def resolve_domain_metrics(hostname, registered_domain):
     a_res = lookup_dns_a(hostname)
     resolved_ip = a_res["resolved_ip"]
     
-    future_time = global_executor.submit(lookup_response_time, hostname, resolved_ip)
-    future_ns = global_executor.submit(lookup_dns_ns, hostname, registered_domain)
-    future_mx = global_executor.submit(lookup_dns_mx, hostname, registered_domain)
-    future_whois = global_executor.submit(lookup_whois, registered_domain)
+    future_time = dns_executor.submit(lookup_response_time, hostname, resolved_ip)
+    future_ns = dns_executor.submit(lookup_dns_ns, hostname, registered_domain)
+    future_mx = dns_executor.submit(lookup_dns_mx, hostname, registered_domain)
+    future_whois = whois_executor.submit(lookup_whois, registered_domain)
     
     results["time_response"] = future_time.result()
     results["resolved_ip"] = resolved_ip

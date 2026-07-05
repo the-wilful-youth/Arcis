@@ -271,19 +271,16 @@
 
             // Parse URL query parameter
             const urlParams = new URLSearchParams(window.location.search);
+            const idParam = urlParams.get('id');
             const dataParam = urlParams.get('data');
 
-            if (!dataParam) {
+            if (!idParam && !dataParam) {
                 stateLoading.classList.add('hidden');
                 stateError.classList.remove('hidden');
                 return;
             }
 
-            try {
-                // Decode Base64 report details safely supporting UTF-8
-                const decodedData = decodeURIComponent(escape(atob(dataParam)));
-                const report = JSON.parse(decodedData);
-
+            function renderReport(report) {
                 // Populate Text Metadata
                 reportSubject.textContent = report.subject || '(No Subject)';
                 reportSender.textContent = report.sender || 'Unknown';
@@ -328,7 +325,14 @@
                 if (reasons.length === 0) {
                     const div = document.createElement('div');
                     div.className = 'indicator-item';
-                    div.innerHTML = `<span class="indicator-dot" style="background: var(--safe)"></span><span class="indicator-text">No significant threats or anomalies detected.</span>`;
+                    const dot = document.createElement('span');
+                    dot.className = 'indicator-dot';
+                    dot.style.background = 'var(--safe)';
+                    const text = document.createElement('span');
+                    text.className = 'indicator-text';
+                    text.textContent = 'No significant threats or anomalies detected.';
+                    div.appendChild(dot);
+                    div.appendChild(text);
                     signalsList.appendChild(div);
                 } else {
                     reasons.forEach((reason, i) => {
@@ -337,7 +341,14 @@
                         const div = document.createElement('div');
                         div.className = 'indicator-item';
                         div.style.animationDelay = `${i * 50}ms`;
-                        div.innerHTML = `<span class="indicator-dot" style="background: ${dotColor}"></span><span class="indicator-text">${reason}</span>`;
+                        const dot = document.createElement('span');
+                        dot.className = 'indicator-dot';
+                        dot.style.background = dotColor;
+                        const text = document.createElement('span');
+                        text.className = 'indicator-text';
+                        text.textContent = reason;
+                        div.appendChild(dot);
+                        div.appendChild(text);
                         signalsList.appendChild(div);
                     });
                 }
@@ -366,20 +377,41 @@
                             verdictText = 'DANGEROUS';
                         }
 
-                        let targetColContent = `<div class="link-url" title="${linkUrl}">${linkUrl}</div>`;
+                        const tdUrl = document.createElement('td');
+                        const divLinkUrl = document.createElement('div');
+                        divLinkUrl.className = 'link-url';
+                        divLinkUrl.title = linkUrl;
+                        divLinkUrl.textContent = linkUrl;
+                        tdUrl.appendChild(divLinkUrl);
+                        
                         if (resolvedUrl && resolvedUrl !== linkUrl) {
-                            targetColContent += `
-                                <div style="font-size: 11px; opacity: 0.7; color: var(--text-3); word-break: break-all; margin-top: 4px;">
-                                    ↳ Redirects to: <span style="font-family: 'JetBrains Mono', monospace; font-weight: 500;">${resolvedUrl}</span>
-                                </div>
-                            `;
+                            const divRedirect = document.createElement('div');
+                            divRedirect.style.cssText = 'font-size: 11px; opacity: 0.7; color: var(--text-3); word-break: break-all; margin-top: 4px;';
+                            divRedirect.appendChild(document.createTextNode('↳ Redirects to: '));
+                            
+                            const spanRedirect = document.createElement('span');
+                            spanRedirect.style.cssText = "font-family: 'JetBrains Mono', monospace; font-weight: 500;";
+                            spanRedirect.textContent = resolvedUrl;
+                            
+                            divRedirect.appendChild(spanRedirect);
+                            tdUrl.appendChild(divRedirect);
                         }
-
-                        tr.innerHTML = `
-                            <td>${targetColContent}</td>
-                            <td><span style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">${score.toFixed(1)}%</span></td>
-                            <td><span class="badge-status ${badgeClass}">${verdictText}</span></td>
-                        `;
+                        tr.appendChild(tdUrl);
+                        
+                        const tdScore = document.createElement('td');
+                        const spanScore = document.createElement('span');
+                        spanScore.style.cssText = "font-family: 'JetBrains Mono', monospace; font-weight: 600;";
+                        spanScore.textContent = `${score.toFixed(1)}%`;
+                        tdScore.appendChild(spanScore);
+                        tr.appendChild(tdScore);
+                        
+                        const tdVerdict = document.createElement('td');
+                        const spanVerdict = document.createElement('span');
+                        spanVerdict.className = `badge-status ${badgeClass}`;
+                        spanVerdict.textContent = verdictText;
+                        tdVerdict.appendChild(spanVerdict);
+                        tr.appendChild(tdVerdict);
+                        
                         linksTbody.appendChild(tr);
                     });
                 }
@@ -387,11 +419,52 @@
                 // Show main view
                 stateLoading.classList.add('hidden');
                 reportView.classList.remove('hidden');
+            }
 
-            } catch (err) {
-                console.error('Failed to parse report details:', err);
-                stateLoading.classList.add('hidden');
-                stateError.classList.remove('hidden');
+            if (idParam) {
+                loadReportWithKey(localStorage.getItem('arcis_api_key') || '');
+            } else if (dataParam) {
+                try {
+                    const decodedData = decodeURIComponent(escape(atob(dataParam)));
+                    const report = JSON.parse(decodedData);
+                    renderReport(report);
+                } catch (err) {
+                    console.error(err);
+                    stateLoading.classList.add('hidden');
+                    stateError.classList.remove('hidden');
+                }
+            }
+
+            function loadReportWithKey(key) {
+                fetch(`/api/report/${idParam}`, {
+                    headers: {
+                        'X-API-Key': key
+                    }
+                })
+                .then(res => {
+                    if (res.status === 403 || res.status === 401) {
+                        const userKey = prompt("This report is protected. Please enter your Arcis API Key:");
+                        if (userKey) {
+                            localStorage.setItem('arcis_api_key', userKey);
+                            loadReportWithKey(userKey);
+                        } else {
+                            throw new Error('Unauthorized');
+                        }
+                        return null;
+                    }
+                    if (!res.ok) throw new Error('Failed to load report from server');
+                    return res.json();
+                })
+                .then(report => {
+                    if (report) {
+                        renderReport(report);
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    stateLoading.classList.add('hidden');
+                    stateError.classList.remove('hidden');
+                });
             }
         })();
     </script>

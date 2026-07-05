@@ -2,52 +2,42 @@
 
 // Active tab analysis cache to avoid redundant hits
 const scanCache = {};
+const scanCacheKeys = [];
 
-async function getBackendUrl() {
+function setCache(url, risk) {
+    if (scanCacheKeys.length >= 500) {
+        const oldest = scanCacheKeys.shift();
+        delete scanCache[oldest];
+    }
+    if (!(url in scanCache)) {
+        scanCacheKeys.push(url);
+    }
+    scanCache[url] = risk;
+}
+
+async function getCredentials() {
     try {
-        const stored = await chrome.storage.local.get('backend_url');
-        return stored.backend_url || 'https://arcis-dvgq.onrender.com';
+        const stored = await chrome.storage.local.get(['backend_url', 'api_key']);
+        return {
+            backendUrl: stored.backend_url || 'https://arcis-dvgq.onrender.com',
+            apiKey: stored.api_key || ''
+        };
     } catch (e) {
-        return 'https://arcis-dvgq.onrender.com';
+        return {
+            backendUrl: 'https://arcis-dvgq.onrender.com',
+            apiKey: ''
+        };
     }
 }
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    // Only trigger when URL is updated and fully loaded
-    if (changeInfo.url && (changeInfo.url.startsWith('http://') || changeInfo.url.startsWith('https://'))) {
-        const url = changeInfo.url;
-        
-        // Skip if already in cache
-        if (scanCache[url]) {
-            updateBadge(tabId, scanCache[url]);
-            return;
-        }
-
-        const backendUrl = await getBackendUrl();
-        // Run background scan
-        fetch(`${backendUrl}/api/analyze/url`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ url: url })
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('API Error');
-            return response.json();
-        })
-        .then(data => {
-            const risk = data.risk_score_pct;
-            scanCache[url] = risk;
-            updateBadge(tabId, risk);
-        })
-        .catch(err => {
-            console.error('Background Scan failed:', err);
-            // On error, clear badge
-            chrome.action.setBadgeText({ tabId: tabId, text: '' });
-        });
+function isValidUrl(string) {
+    try {
+        const url = new URL(string);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (_) {
+        return false;
     }
-});
+}
 
 function updateBadge(tabId, riskScore) {
     if (riskScore < 30) {
@@ -67,17 +57,23 @@ function updateBadge(tabId, riskScore) {
 // Message listener to handle privileged fetch requests bypassing Gmail CSP
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'get_backend_url') {
-        getBackendUrl().then(url => sendResponse({ url: url }));
+        getCredentials().then(creds => sendResponse({ url: creds.backendUrl }));
         return true;
     }
 
     if (request.action === 'analyze_email') {
-        getBackendUrl().then(async (backendUrl) => {
+        getCredentials().then(async (creds) => {
+            if (!isValidUrl(creds.backendUrl)) {
+                sendResponse({ error: 'Invalid API Endpoint URL configured.' });
+                return;
+            }
+
             // 1. Analyze the email sender/headers
-            const emailPromise = fetch(`${backendUrl}/api/analyze/email`, {
+            const emailPromise = fetch(`${creds.backendUrl}/api/analyze/email`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-API-Key': creds.apiKey
                 },
                 body: JSON.stringify(request.data)
             })
@@ -92,10 +88,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
             // 2. Scan all extracted embedded links in parallel
             const linkPromises = (request.links || []).map(url => {
-                return fetch(`${backendUrl}/api/analyze/url`, {
+                return fetch(`${creds.backendUrl}/api/analyze/url`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'X-API-Key': creds.apiKey
                     },
                     body: JSON.stringify({ url: url })
                 })
@@ -159,7 +156,38 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 }
 
                 emailResult.scanned_links = scannedLinksList;
-                sendResponse({ success: true, data: emailResult });
+
+                // Build report payload to POST to the database
+                const reportPayload = {
+                    subject: request.data.subject || '',
+                    sender: request.data.email || '',
+                    body: request.data.body || '',
+                    cc: request.cc || [],
+                    risk_score_pct: emailResult.risk_score_pct,
+                    reasons: emailResult.details.reasons || [],
+                    links: scannedLinksList
+                };
+
+                return fetch(`${creds.backendUrl}/api/report`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': creds.apiKey
+                    },
+                    body: JSON.stringify(reportPayload)
+                })
+                .then(res => {
+                    if (!res.ok) throw new Error('Report API Error');
+                    return res.json();
+                })
+                .then(repData => {
+                    emailResult.report_id = repData.report_id;
+                    sendResponse({ success: true, data: emailResult });
+                })
+                .catch(err => {
+                    console.error('Report submission failed:', err);
+                    sendResponse({ success: true, data: emailResult });
+                });
             })
             .catch(err => {
                 console.error('Background Email & Link Scan failed:', err);

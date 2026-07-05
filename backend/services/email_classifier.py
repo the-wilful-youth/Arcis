@@ -6,6 +6,9 @@ import dns.resolver
 import joblib
 import numpy as np
 import onnxruntime as ort
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Resolve model paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -34,17 +37,20 @@ if os.path.exists(VECTORIZER_PATH):
         print(f"Error loading vectorizer: {e}")
 
 class EmailDomainCache:
-    """Thread-safe TTL cache for domain lookup metrics."""
-    def __init__(self, ttl_seconds=3600):
+    """Thread-safe LRU/FIFO TTL cache for domain lookup metrics."""
+    def __init__(self, ttl_seconds=3600, max_size=10000):
         self.cache = {}
         self.lock = threading.Lock()
         self.ttl = ttl_seconds
+        self.max_size = max_size
         
     def get(self, domain):
         with self.lock:
             if domain in self.cache:
                 entry = self.cache[domain]
                 if time.time() - entry["timestamp"] < self.ttl:
+                    # Move to end (LRU behavior)
+                    self.cache[domain] = self.cache.pop(domain)
                     return entry["data"]
                 else:
                     del self.cache[domain]
@@ -52,12 +58,17 @@ class EmailDomainCache:
         
     def set(self, domain, data):
         with self.lock:
+            if domain in self.cache:
+                del self.cache[domain]
+            elif len(self.cache) >= self.max_size:
+                oldest = next(iter(self.cache))
+                del self.cache[oldest]
             self.cache[domain] = {
                 "timestamp": time.time(),
                 "data": data
             }
 
-email_dns_cache = EmailDomainCache(ttl_seconds=3600)  # 1 hour cache
+email_dns_cache = EmailDomainCache(ttl_seconds=3600, max_size=10000)  # 1 hour cache, max 10k entries
 
 def verify_email_dns(domain: str) -> dict:
     """Perform DNS checks to verify sender domain safety configuration."""
@@ -172,12 +183,14 @@ def predict_sender_email(
     suspicious_urls = 0
     high_risk_urls = 0
     scanned_url_details = []
+    max_url_risk_score = 0.0
 
     for u in unique_urls:
         try:
             url_res = predict_url(u)
             url_score = url_res.get("risk_score_pct", 0)
             scanned_url_details.append(url_res)
+            max_url_risk_score = max(max_url_risk_score, float(url_score) / 100.0)
             if url_score >= 70:
                 high_risk_urls += 1
             elif url_score >= 30:
@@ -192,7 +205,8 @@ def predict_sender_email(
             'safe_urls': len(unique_urls) - (suspicious_urls + high_risk_urls),
             'suspicious_urls': suspicious_urls,
             'high_risk_urls': high_risk_urls
-        }
+        },
+        'max_risk_score': max_url_risk_score
     }
 
     if high_risk_urls > 0:
@@ -215,7 +229,8 @@ def predict_sender_email(
             model_score = float(raw_pred[1][0][1])
             ml_used = True
         except Exception as e:
-            reasons.append(f"ML Classifier failed during inference: {e}")
+            logger.error("ML Classifier failed during inference", exc_info=True)
+            reasons.append("ML Classifier temporarily unavailable.")
 
     ml_classifier_data = {
         'classification': 'phishing' if model_score >= 0.5 else 'legitimate',
@@ -318,7 +333,7 @@ def predict_sender_email(
     # Blend overall confidence with sender/header-level risk
     final_score = max(score_result.overall_confidence, sender_risk)
     final_score_pct = round(final_score * 100, 2)
-    is_phishing = final_score_pct >= 50.0
+    is_phishing = final_score >= 0.5
     
     # Prepend classifier info
     if ml_used:

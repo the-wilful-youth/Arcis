@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+.env
+.env.example
+docker-compose.yml
+Dockerfile
+nginx.conf
+README.md
+extension/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.DS_Store
