@@ -108,14 +108,54 @@ def check_brand_impersonation(hostname: str, domain: str, registered_domain: str
     reg_name = reg_parts[0] if reg_parts else ""
     hostname_lower = (hostname or domain or "").lower()
     
-    # 1. Exact Match to official domain
+    ext = tldextract.extract(hostname_lower)
+    
+    # 1. Exact Match to official domain or subdomain of it
     for brand, official in brand_domains.items():
-        if registered_domain.lower() == official:
+        if hostname_lower == official or hostname_lower.endswith('.' + official):
             return {"impersonated": False, "brand": brand, "official": True}
             
-    # 2. Contains brand name but is not official
+        # Check for regional variants (e.g. google.co.in, amazon.in)
+        # only if the official domain is a standard domain (has no subdomains)
+        off_ext = tldextract.extract(official)
+        if not off_ext.subdomain:
+            if ext.domain.lower() == off_ext.domain.lower():
+                safe_suffixes = {
+                    'com', 'co', 'in', 'co.in', 'co.uk', 'org', 'net', 'de', 'fr', 'co.jp', 
+                    'jp', 'ca', 'com.br', 'br', 'com.mx', 'mx', 'com.au', 'au', 'ru', 'nl', 
+                    'se', 'pl', 'ch', 'at', 'be', 'co.za', 'za', 'sg', 'com.sg', 'it', 'es', 
+                    'ie', 'co.nz', 'nz', 'hk', 'com.hk', 'tw', 'com.tw', 'kr', 'co.kr',
+                    'us', 'me', 'tv', 'cc', 'info', 'biz', 'asia', 'eu'
+                }
+                if ext.suffix.lower() in safe_suffixes:
+                    return {"impersonated": False, "brand": brand, "official": True}
+
+    # 1b. Check for short domain aliases (e.g. amzn.to, amzn.in, msft.it)
+    brand_short_domains = {
+        'amazon': {'amzn.to', 'amzn.in', 'amzn.eu', 'amzn.com', 'amzn.co.uk', 'amzn.de', 'amzn.fr', 'amzn.jp', 'amzn.ca'},
+        'microsoft': {'msft.it', 'msft.net', 'msft.education'},
+        'google': {'g.co', 'goo.gl', 'youtu.be'},
+        'facebook': {'fb.me', 'fb.com'},
+        'twitter': {'t.co'},
+        'linkedin': {'lnk.in', 'lnkd.in'}
+    }
+    for brand, short_set in brand_short_domains.items():
+        if registered_domain.lower() in short_set or hostname_lower in short_set:
+            return {"impersonated": False, "brand": brand, "official": True}
+        
+        # Support dynamic suffixes for known abbreviations
+        if brand == 'amazon' and ext.domain.lower() == 'amzn':
+            safe_suffixes = {'to', 'in', 'com', 'eu', 'co.uk', 'de', 'fr', 'jp', 'ca'}
+            if ext.suffix.lower() in safe_suffixes:
+                return {"impersonated": False, "brand": "amazon", "official": True}
+        elif brand == 'microsoft' and ext.domain.lower() == 'msft':
+            safe_suffixes = {'it', 'net', 'com', 'co.uk', 'de', 'fr', 'jp', 'ca'}
+            if ext.suffix.lower() in safe_suffixes:
+                return {"impersonated": False, "brand": "microsoft", "official": True}
+
+    # 2. Contains brand name but is not official/legitimate regional
     for brand, official in brand_domains.items():
-        if brand in hostname_lower and registered_domain.lower() != official:
+        if brand in hostname_lower:
             return {"impersonated": True, "brand": brand, "type": "Keyword Impersonation"}
             
     # 3. Typosquatting / edit distance (dist is 1 or 2)
@@ -280,9 +320,9 @@ def resolve_domain_metrics(hostname, registered_domain):
     results["qty_nameservers"] = future_ns.result()
     results["qty_mx_servers"] = future_mx.result()
     
-    # Strict WHOIS timeout
+    # Strict WHOIS timeout (increased to 6.0 for more robust lookups)
     try:
-        act, exp = future_whois.result(timeout=3.0)
+        act, exp = future_whois.result(timeout=6.0)
     except Exception:
         act, exp = -1, -1
         
@@ -429,12 +469,18 @@ def predict_url(url: str) -> dict:
         brand_check = brand_check_orig if brand_check_orig.get("official") else brand_check_res
     else:
         brand_check = brand_check_orig
-    
+        
     df_row = pd.Series(feats).reindex(features_list).fillna(0)
     scaled_df = pd.DataFrame([df_row], columns=features_list)
     scaled = scaler.transform(scaled_df)
     prob = model.predict_proba(scaled_df)[0, 1]
+    
+    # Wise combination of heuristics & ML:
+    # 1. If brand verification matches official brand assets, trust it.
+    # 2. If brand verification finds typosquatting/impersonation, flag it.
+    # 3. Otherwise, use ML prediction refined by domain age (older domains scaled down).
     is_phishing = bool(prob >= 0.5)
+    age_adjusted = False
     
     if brand_check.get("official"):
         is_phishing = False
@@ -442,6 +488,12 @@ def predict_url(url: str) -> dict:
     elif brand_check.get("impersonated"):
         is_phishing = True
         prob = max(prob, 0.95)
+    else:
+        domain_age = feats.get("time_domain_activation", -1)
+        if domain_age > 365:
+            prob = prob * 0.05
+            age_adjusted = True
+            is_phishing = bool(prob >= 0.5)
 
     importances = model.feature_importances_
     contributions = scaled[0] * importances
@@ -466,6 +518,7 @@ def predict_url(url: str) -> dict:
         "is_phishing": is_phishing,
         "risk_score_pct": round(prob * 100, 2),
         "brand_alert": brand_check,
+        "age_adjusted": age_adjusted,
         "features": {k: float(v) for k, v in feats.items() if k in features_list},
         "top_features": reasons
     }
