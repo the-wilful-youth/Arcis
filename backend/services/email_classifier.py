@@ -172,12 +172,14 @@ def predict_sender_email(
     suspicious_urls = 0
     high_risk_urls = 0
     scanned_url_details = []
+    max_url_risk_score = 0.0
 
     for u in unique_urls:
         try:
             url_res = predict_url(u)
             url_score = url_res.get("risk_score_pct", 0)
             scanned_url_details.append(url_res)
+            max_url_risk_score = max(max_url_risk_score, float(url_score) / 100.0)
             if url_score >= 70:
                 high_risk_urls += 1
             elif url_score >= 30:
@@ -192,7 +194,8 @@ def predict_sender_email(
             'safe_urls': len(unique_urls) - (suspicious_urls + high_risk_urls),
             'suspicious_urls': suspicious_urls,
             'high_risk_urls': high_risk_urls
-        }
+        },
+        'max_risk_score': max_url_risk_score
     }
 
     if high_risk_urls > 0:

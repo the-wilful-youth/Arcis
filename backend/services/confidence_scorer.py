@@ -88,20 +88,23 @@ def score_analysis_confidence(
         
         # 1. Evaluate Machine Learning Classifier Output
         if component == 'ml_classifier':
-            if data.get('classification') == 'phishing':
-                score = data.get('confidence', 1.0)
-            else:
-                # If legitimate, treat confidence as distance from phishing (low threat)
-                score = 0.0
+            # Use continuous ML probability if available, fallback to classification-based binary logic
+            score = data.get('confidence', 0.0)
+            if not isinstance(score, (int, float)):
+                score = 1.0 if data.get('classification') == 'phishing' else 0.0
         
         # 2. Evaluate URL Analysis Output
         elif component == 'url_analysis':
-            summary = data.get('summary', {})
-            total_urls = summary.get('total_urls', 0)
-            if total_urls > 0:
-                bad_urls = summary.get('suspicious_urls', 0) + summary.get('high_risk_urls', 0)
-                # Ratio of malicious links to total links, bounded at 1.0
-                score = min(1.0, bad_urls / total_urls)
+            # Use the actual maximum risk score of any embedded URL if available
+            if isinstance(data, dict) and 'max_risk_score' in data:
+                score = data.get('max_risk_score', 0.0)
+            else:
+                summary = data.get('summary', {})
+                total_urls = summary.get('total_urls', 0)
+                if total_urls > 0:
+                    bad_urls = summary.get('suspicious_urls', 0) + summary.get('high_risk_urls', 0)
+                    # Ratio of malicious links to total links, bounded at 1.0
+                    score = min(1.0, bad_urls / total_urls)
                 
         # 3. Evaluate Natural Language Processing (NLP) / Heuristic Outputs
         elif component in ['sensitive_request', 'polite_request', 'short_email_risk']:
