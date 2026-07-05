@@ -414,6 +414,70 @@ document.addEventListener('DOMContentLoaded', () => {
                 ));
             }
 
+            /* Friendly feature name helper */
+            function getFriendlyFeatureName(key) {
+                const customNames = {
+                    time_domain_activation: 'Domain Registration Age',
+                    time_domain_expiration: 'Domain Expiry Window',
+                    qty_ip_resolved:        'Resolved IP Addresses',
+                    time_response:          'Server Response Time',
+                    length_url:             'URL Length',
+                    domain_length:          'Domain Name Length',
+                    directory_length:       'Directory Path Length',
+                    file_length:            'File Name Length',
+                    params_length:          'Query Parameters Length',
+                    ttl_hostname:           'DNS Time-to-Live (TTL)',
+                    asn_ip:                 'Network Provider (ASN)',
+                    qty_nameservers:        'Nameservers Count',
+                    qty_mx_servers:         'Mail Servers Count',
+                    qty_vowels_domain:      'Vowel Count in Domain',
+                    tld_present_params:     'Domain Extensions in Parameters'
+                };
+
+                if (customNames[key]) {
+                    return customNames[key];
+                }
+
+                if (key.startsWith('qty_')) {
+                    const parts = key.split('_');
+                    if (parts.length >= 3) {
+                        const charMap = {
+                            dot: 'dot (.)',
+                            slash: 'slash (/)',
+                            hyphen: 'hyphen (-)',
+                            underline: 'underscore (_)',
+                            at: 'at symbol (@)',
+                            questionmark: 'question mark (?)',
+                            equal: 'equal sign (=)',
+                            and: 'ampersand (&)',
+                            exclamation: 'exclamation mark (!)',
+                            space: 'space',
+                            tilde: 'tilde (~)',
+                            comma: 'comma (,)',
+                            plus: 'plus sign (+)',
+                            asterisk: 'asterisk (*)',
+                            hashtag: 'hashtag (#)',
+                            dollar: 'dollar sign ($)',
+                            percent: 'percent sign (%)'
+                        };
+
+                        const locMap = {
+                            directory: 'directory path',
+                            file: 'file name',
+                            url: 'URL',
+                            domain: 'domain name',
+                            params: 'query parameters'
+                        };
+
+                        const charName = charMap[parts[1]] || parts[1];
+                        const locName = locMap[parts[2]] || parts[2];
+                        return `Count of "${charName}" in ${locName}`;
+                    }
+                }
+
+                return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            }
+
             /* Top feature indicators */
             (data.top_features || []).forEach((ind, i) => {
                 const isUp  = ind.direction === 'increases';
@@ -429,7 +493,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (feat === 'domain_length')            desc = `Domain name is ${Math.round(val)} characters.`;
                 else if (feat.startsWith('qty_slash_'))       desc = `${Math.round(val)} slash character(s) in URL path segments.`;
                 else if (feat.startsWith('qty_dot_'))         desc = `${Math.round(val)} dot(s) present in URL segments.`;
-                else                                          desc = `"${feat}" = ${val} (${ind.direction}s risk score).`;
+                else {
+                    const friendlyName = getFriendlyFeatureName(feat);
+                    desc = `${friendlyName}: ${val} (${isUp ? 'increases' : 'decreases'} risk score).`;
+                }
 
                 indicatorsList.appendChild(makeIndicator(desc, tone, count++));
             });
@@ -444,17 +511,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rankedFeatures = [...(data.top_features || [])]
                     .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
 
-                const featureLabels = {
-                    time_domain_activation: 'Domain Age',
-                    time_domain_expiration: 'Domain Expiry',
-                    qty_ip_resolved:        'Resolved IPs',
-                    time_response:          'Server Response Time',
-                    length_url:             'URL Length',
-                    domain_length:          'Domain Length'
-                };
-
                 rankedFeatures.forEach(item => {
-                    const label = featureLabels[item.feature] || item.feature.replace(/_/g, ' ');
+                    const label = getFriendlyFeatureName(item.feature);
                     const isRisky = item.direction === 'increases';
                     // Normalize impact magnitude to a 0-100 bar width
                     const maxImpact = Math.max(...rankedFeatures.map(f => Math.abs(f.impact)), 0.0001);
