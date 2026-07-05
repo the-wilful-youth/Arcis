@@ -14,6 +14,15 @@
   let isScanning = false;
   let lastVerdict = null; // { safe, risk, reasons }
 
+  /* Helper to check if the extension context is still valid */
+  function isContextValid() {
+    try {
+      return typeof chrome !== 'undefined' && chrome.runtime && !!chrome.runtime.id;
+    } catch (e) {
+      return false;
+    }
+  }
+
   /* ── Build DOM ─────────────────────────────────────────── */
   const root = document.createElement('div');
   root.id = 'arcis-widget-root';
@@ -233,12 +242,19 @@
   const findingsList = root.querySelector('#arcis-findings-list');
   const moreLink     = root.querySelector('#arcis-more-link');
 
-  // Load backend URL configuration dynamically
-  chrome.runtime.sendMessage({ action: 'get_backend_url' }, response => {
-      if (response && response.url && moreLink) {
-          moreLink.href = response.url;
-      }
-  });
+  // Load backend URL configuration dynamically (if context is valid)
+  if (isContextValid()) {
+    try {
+      chrome.runtime.sendMessage({ action: 'get_backend_url' }, response => {
+          if (chrome.runtime.lastError) return;
+          if (response && response.url && moreLink) {
+              moreLink.href = response.url;
+          }
+      });
+    } catch (e) {
+      // Ignored: context invalidated
+    }
+  }
 
   /* ── Expand / Contract ──────────────────────────────────── */
   function expand() {
@@ -349,6 +365,12 @@
     isScanning = true;
     showState('scan');
 
+    if (!isContextValid()) {
+      renderVerdict(buildDemoVerdict(emailData), emailData);
+      isScanning = false;
+      return;
+    }
+
     try {
       chrome.runtime.sendMessage({
         action: 'analyze_email',
@@ -363,6 +385,10 @@
         cc: emailData.cc,
         links: emailData.links
       }, response => {
+        if (chrome.runtime.lastError) {
+          renderVerdict(buildDemoVerdict(emailData), emailData);
+          return;
+        }
         let data;
         if (response && response.success) {
           data = response.data;
@@ -452,10 +478,25 @@
         const base64Data = btoa(unescape(encodeURIComponent(JSON.stringify(reportPayload))));
         const reportLink = root.querySelector('#arcis-more-link');
         if (reportLink) {
-          chrome.runtime.sendMessage({ action: 'get_backend_url' }, response => {
-              const url = (response && response.url) ? response.url : 'https://arcis-dvgq.onrender.com';
-              reportLink.href = `${url}/report.html?data=${encodeURIComponent(base64Data)}`;
-          });
+          let msgSent = false;
+          if (isContextValid()) {
+            try {
+              chrome.runtime.sendMessage({ action: 'get_backend_url' }, response => {
+                  if (chrome.runtime.lastError) {
+                    reportLink.href = `https://arcis-dvgq.onrender.com/report.html?data=${encodeURIComponent(base64Data)}`;
+                    return;
+                  }
+                  const url = (response && response.url) ? response.url : 'https://arcis-dvgq.onrender.com';
+                  reportLink.href = `${url}/report.html?data=${encodeURIComponent(base64Data)}`;
+              });
+              msgSent = true;
+            } catch (e) {
+              // Ignore context invalidated
+            }
+          }
+          if (!msgSent) {
+            reportLink.href = `https://arcis-dvgq.onrender.com/report.html?data=${encodeURIComponent(base64Data)}`;
+          }
         }
       } catch (err) {
         console.error('Failed to encode report payload:', err);
