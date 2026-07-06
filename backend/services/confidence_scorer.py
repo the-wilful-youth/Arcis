@@ -96,7 +96,7 @@ def score_analysis_confidence(
         
         # 2. Evaluate URL Analysis Output
         elif component == 'url_analysis':
-            summary = data.get('summary', {})
+            summary = data.get('risk_score_pct', 0) / 100.0
             total_urls = summary.get('total_urls', 0)
             if total_urls > 0:
                 bad_urls = summary.get('suspicious_urls', 0) + summary.get('high_risk_urls', 0)

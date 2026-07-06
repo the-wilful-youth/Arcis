@@ -168,7 +168,11 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function makeIndicator(text, tone = 'danger', index = 0) {
         const item = document.createElement('div');
-        item.className = `indicator-item${tone === 'brand' ? ' indicator-item--brand' : ''}`;
+        const itemToneClass = tone === 'brand' ? 'indicator-item--brand'
+                    : tone === 'safe'  ? 'indicator-item--safe'
+                    : tone === 'danger' ? 'indicator-item--danger'
+                    : '';
+        item.className = `indicator-item${itemToneClass ? ' ' + itemToneClass : ''}`;
         item.style.animationDelay = `${index * 60}ms`;
 
         const dotClass = tone === 'safe' ? 'indicator-dot--safe'
@@ -187,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const textSpan = document.createElement('span');
         textSpan.className = 'indicator-text';
-        textSpan.textContent = text;
+        textSpan.innerHTML = text;
 
         item.appendChild(dotSpan);
         item.appendChild(textSpan);
@@ -414,64 +418,207 @@ document.addEventListener('DOMContentLoaded', () => {
                 ));
             }
 
-            /* Top feature indicators */
-            (data.top_features || []).forEach((ind, i) => {
-                const isUp  = ind.direction === 'increases';
-                const tone  = isUp ? 'danger' : 'safe';
-                const feat  = ind.feature;
-                const val   = ind.value;
+            const featureLabels = {
+                // Domain
+                time_domain_activation: "Domain Age",
+                time_domain_expiration: "Domain Registration",
+                domain_length: "Domain Structure",
+                qty_dot_domain: "Domain Structure",
+                qty_hyphen_domain: "Domain Structure",
+                qty_vowels_domain: "Domain Structure",
+                qty_numbers_domain: "Domain Structure",
+
+                // URL
+                length_url: "URL Length",
+                directory_length: "URL Structure",
+                qty_slash_directory: "URL Structure",
+                qty_dot_directory: "URL Structure",
+                qty_slash_url: "URL Structure",
+                qty_dot_url: "URL Structure",
+                qty_hyphen_url: "URL Structure",
+                qty_questionmark_url: "URL Structure",
+                qty_equal_url: "URL Structure",
+                qty_at_url: "URL Structure",
+
+                // DNS
+                qty_ip_resolved: "DNS Resolution",
+                qty_nameservers: "DNS Configuration",
+                qty_mx_servers: "Mail Server Configuration",
+                ttl_hostname: "DNS Stability",
+                time_response: "Server Availability",
+                asn_ip: "Hosting Network"
+            };
+
+            /* Top feature indicators (from risk_signals.increasing / .decreasing) */
+            const riskSignals = data.risk_signals || { increasing: { signals: [] }, decreasing: { signals: [] } };
+            const increasingSignals = (riskSignals.increasing?.signals || []).map(s => ({ ...s, direction: 'increases' }));
+            const decreasingSignals = (riskSignals.decreasing?.signals || []).map(s => ({ ...s, direction: 'decreases' }));
+            if (data.brand_alert?.impersonated) {
+
+                const highestImpact = Math.max(
+                    ...increasingSignals.map(s => Math.abs(s.impact)),
+                    1
+                );
+
+                increasingSignals.unshift({
+                    feature: "brand_impersonation",
+                    label: `Brand Impersonation (${data.brand_alert.brand})`,
+                    impact: highestImpact + 1,
+                    direction: "increases"
+                });
+            }
+
+            const allSignals = data.is_phishing ? increasingSignals : decreasingSignals;
+
+            allSignals.forEach((ind) => {
+                const isUp = ind.direction === 'increases';
+                const tone = isUp ? 'danger' : 'safe';
+                const feat = ind.feature;
+                const val  = ind.value;
                 let desc = '';
 
-                if      (feat === 'time_domain_activation')  desc = val < 0 ? 'Domain registration age cannot be verified.' : `Domain is ${Math.round(val)} days old.`;
-                else if (feat === 'time_response')            desc = val < 0 ? 'Server is unresponsive or timed out.' : `Server responded in ${(val * 1000).toFixed(0)} ms.`;
-                else if (feat === 'qty_ip_resolved')          desc = val <= 0 ? 'Domain fails to resolve to any IP address.' : `Resolved to ${Math.round(val)} active IP address(es).`;
-                else if (feat === 'length_url')               desc = `URL is ${Math.round(val)} characters long — long URLs can mask phishing paths.`;
-                else if (feat === 'domain_length')            desc = `Domain name is ${Math.round(val)} characters.`;
-                else if (feat.startsWith('qty_slash_'))       desc = `${Math.round(val)} slash character(s) in URL path segments.`;
-                else if (feat.startsWith('qty_dot_'))         desc = `${Math.round(val)} dot(s) present in URL segments.`;
-                else                                          desc = `"${feat}" = ${val} (${ind.direction}s risk score).`;
+                if (feat === "brand_impersonation") {
+                    // Already rendered separately above; skip duplicate.
+                    return;
+                }
+
+                if (feat === "time_domain_activation") {
+                    desc = val < 0
+                        ? "Domain registration age could not be verified."
+                        : `Domain has existed for ${Math.round(val)} days.`;
+                }
+
+                else if (feat === "time_domain_expiration") {
+                    desc = val < 0
+                        ? "Domain expiration information is unavailable."
+                        : `Domain registration remains valid for ${Math.round(val)} more days.`;
+                }
+
+                else if (feat === "time_response") {
+                    desc = val < 0
+                        ? "Server could not be reached."
+                        : `Server responded in ${(val * 1000).toFixed(0)} ms.`;
+                }
+
+                else if (feat === "qty_ip_resolved") {
+                    desc = val <= 0
+                        ? "Domain could not be resolved to an IP address."
+                        : `Domain resolves to ${Math.round(val)} IP address(es).`;
+                }
+
+                else if (feat === "length_url") {
+                    desc = `URL contains ${Math.round(val)} characters.`;
+                }
+
+                else if (feat === "domain_length") {
+                    desc = `Domain name contains ${Math.round(val)} characters.`;
+                }
+
+                else if (feat === "directory_length") {
+                    desc = val < 0
+                        ? "URL contains no directory path."
+                        : `Directory path length is ${Math.round(val)} characters.`;
+                }
+
+                else if (feat === "qty_slash_directory") {
+                    desc = `${Math.round(val)} directory separator(s) detected in the URL path.`;
+                }
+
+                else if (feat === "qty_dot_directory") {
+                    desc = `${Math.round(val)} dot character(s) detected inside URL directories.`;
+                }
+
+                else if (feat === "qty_dot_url") {
+                    desc = `${Math.round(val)} dot character(s) found in the URL.`;
+                }
+
+                else if (feat === "qty_hyphen_url") {
+                    desc = `${Math.round(val)} hyphen character(s) found in the URL.`;
+                }
+
+                else if (feat === "qty_mx_servers") {
+                    desc = val < 0
+                        ? "No mail exchange (MX) records were found."
+                        : `${Math.round(val)} mail server(s) detected.`;
+                }
+
+                else if (feat === "ttl_hostname") {
+                    desc = `DNS cache lifetime (TTL) is ${Math.round(val)} seconds.`;
+                }
+
+                else if (feat === "asn_ip") {
+                    desc = val < 0
+                        ? "Hosting network could not be identified."
+                        : "Hosting network information was successfully identified.";
+                }
+
+                else {
+                    desc = `${featureLabels[feat] || feat} was analyzed.`;
+                }
 
                 indicatorsList.appendChild(makeIndicator(desc, tone, count++));
             });
 
             indicatorCount.textContent = `${count} signal${count !== 1 ? 's' : ''}`;
 
-            /* Ranked risk factor breakdown for URL analysis */
-            const urlRankingContainer = document.getElementById('url-risk-ranking');
-            if (urlRankingContainer) {
-                urlRankingContainer.innerHTML = '';
+            /* Ranked risk factor breakdown for URL analysis — split by direction */
+            const increaseContainer = document.getElementById('url-risk-ranking-increasing');
+            const decreaseContainer = document.getElementById('url-risk-ranking-decreasing');
+            const increaseTotalEl   = document.getElementById('url-ranking-increase-total');
+            const decreaseTotalEl   = document.getElementById('url-ranking-decrease-total');
 
-                const rankedFeatures = [...(data.top_features || [])]
-                    .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
+            function renderRankingGroup(container, signals, isRisky) {
+                if (!container) return;
+                container.innerHTML = "";
 
-                const featureLabels = {
-                    time_domain_activation: 'Domain Age',
-                    time_domain_expiration: 'Domain Expiry',
-                    qty_ip_resolved:        'Resolved IPs',
-                    time_response:          'Server Response Time',
-                    length_url:             'URL Length',
-                    domain_length:          'Domain Length'
-                };
+                // Group SHAP features by their display label
+                const grouped = {};
+                signals.forEach(item => {
+                    const label = featureLabels[item.feature] || item.feature.replace(/_/g, " ");
+                    if (!grouped[label]) {
+                        grouped[label] = { label, impact: 0 };
+                    }
+                    grouped[label].impact += Math.abs(item.impact);
+                });
 
-                rankedFeatures.forEach(item => {
-                    const label = featureLabels[item.feature] || item.feature.replace(/_/g, ' ');
-                    const isRisky = item.direction === 'increases';
-                    // Normalize impact magnitude to a 0-100 bar width
-                    const maxImpact = Math.max(...rankedFeatures.map(f => Math.abs(f.impact)), 0.0001);
-                    const pct = Math.round((Math.abs(item.impact) / maxImpact) * 100);
-                    const tone = isRisky ? 'danger' : 'safe';
+                const groupedSignals = Object.values(grouped)
+                    .sort((a, b) => b.impact - a.impact);
 
-                    const row = document.createElement('div');
-                    row.className = 'ranking-row';
+                const maxImpact = Math.max(...groupedSignals.map(s => s.impact), 0.0001);
+
+                groupedSignals.forEach(item => {
+                    const pct = Math.round((item.impact / maxImpact) * 100);
+                    const row = document.createElement("div");
+                    row.className = "ranking-row";
                     row.innerHTML = `
-                        <div class="ranking-row__label">${label}</div>
+                        <div class="ranking-row__label">${item.label}</div>
                         <div class="ranking-row__bar">
                             <div class="ranking-row__fill" style="width:${pct}%"></div>
                         </div>
-                        <div class="ranking-row__pct">${isRisky ? '+' : '−'}${pct}%</div>
+                        <div class="ranking-row__pct">${isRisky ? "+" : "−"}${pct}%</div>
                     `;
-                    urlRankingContainer.appendChild(row);
+                    container.appendChild(row);
                 });
+            }
+
+            // Only show the group matching the verdict — increasing factors
+            // for a phishing verdict, decreasing factors for a safe verdict.
+            if (data.is_phishing) {
+                renderRankingGroup(increaseContainer, increasingSignals, true);
+                if (decreaseContainer) decreaseContainer.innerHTML = '';
+                if (increaseTotalEl) {
+                    increaseTotalEl.textContent =
+                        `+${(riskSignals.increasing?.total_influence ?? 0).toFixed(2)}`;
+                }
+                if (decreaseTotalEl) decreaseTotalEl.textContent = '—';
+            } else {
+                renderRankingGroup(decreaseContainer, decreasingSignals, false);
+                if (increaseContainer) increaseContainer.innerHTML = '';
+                if (decreaseTotalEl) {
+                    decreaseTotalEl.textContent =
+                        `${(riskSignals.decreasing?.total_influence ?? 0).toFixed(2)}`;
+                }
+                if (increaseTotalEl) increaseTotalEl.textContent = '—';
             }
 
         } catch (err) {

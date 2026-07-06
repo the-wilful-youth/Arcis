@@ -1022,6 +1022,14 @@ img, svg { display: block; }
     background: rgba(235, 87, 87, 0.12);
 }
 
+.indicator-item--danger {
+    background: rgba(235, 87, 87, 0.12);
+}
+
+.indicator-item--safe {
+    background: rgba(111, 207, 151, 0.10);
+}
+
 .indicator-dot {
     width: 7px;
     height: 7px;
@@ -1501,3 +1509,33 @@ img, svg { display: block; }
     background: var(--danger); /* the filled portion is always red */
 }
 
+/* Risk Factor Ranking — grouped headers (increasing / decreasing) */
+.ranking-group__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.ranking-group__header--spaced {
+    margin-top: 16px;
+}
+
+.ranking-group__label {
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0.75;
+}
+
+.ranking-group__total {
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.ranking-group__total--danger {
+    color: var(--danger);
+}
+
+.ranking-group__total--safe {
+    color: var(--safe);
+}

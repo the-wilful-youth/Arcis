@@ -199,7 +199,18 @@
                                     <div id="indicators-list" class="indicator-feed"></div>
                                     <div class="card__section">
                                         <h3 class="card__title">Risk Factor Ranking</h3>
-                                        <div id="url-risk-ranking" class="ranking-list"></div>
+
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+                                            <span style="font-size:12px; font-weight:600; opacity:0.75;">Risk-Increasing Factors</span>
+                                            <span id="url-ranking-increase-total" style="font-size:12px; font-weight:700; color:var(--danger);">—</span>
+                                        </div>
+                                        <div id="url-risk-ranking-increasing" class="ranking-list"></div>
+
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+                                            <span style="font-size:12px; font-weight:600; opacity:0.75;">Risk-Decreasing Factors</span>
+                                            <span id="url-ranking-decrease-total" style="font-size:12px; font-weight:700; color:var(--safe);">—</span>
+                                        </div>
+                                        <div id="url-risk-ranking-decreasing" class="ranking-list ranking-list--safe"></div>
                                     </div>
                                 </div>
 

@@ -13,6 +13,7 @@ import tldextract
 import whois
 from concurrent.futures import ThreadPoolExecutor
 import urllib.request
+import shap
 
 # Load the model bundle
 BUNDLE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models", "url_phishing_bundle.joblib")
@@ -23,6 +24,10 @@ bundle = joblib.load(BUNDLE_PATH)
 model = bundle["model"]
 scaler = bundle["scaler"]
 features_list = bundle["feature_names"]
+
+# Built once at import time — reused for every prediction so we don't
+# pay the setup cost of TreeExplainer on every single request.
+shap_explainer = shap.TreeExplainer(model)
 
 dns_resolver = dns.resolver.Resolver()
 dns_resolver.timeout = 1.0
@@ -406,6 +411,86 @@ def extract_features(raw_url: str) -> dict:
 
     return feats
 
+FEATURE_EXPLANATIONS = {
+    "length_url": {
+        "bad": "The URL is unusually long, a common technique used to hide phishing content.",
+        "good": "The URL length appears normal."
+    },
+
+    "domain_length": {
+        "bad": "The domain name has an unusual length.",
+        "good": "The domain name length appears normal."
+    },
+
+    "qty_ip_resolved": {
+        "bad": "The domain failed to resolve correctly.",
+        "good": "The domain resolves correctly."
+    },
+
+    "qty_mx_servers": {
+        "bad": "No valid mail servers were detected for this domain.",
+        "good": "Valid mail servers were found."
+    },
+
+    "time_domain_activation": {
+        "bad": "The domain is very new.",
+        "good": "The domain has existed for a long time."
+    },
+
+    "time_domain_expiration": {
+        "bad": "The domain expires soon, which is common among phishing sites.",
+        "good": "The domain registration extends well into the future."
+    },
+
+    "time_response": {
+        "bad": "The server was slow or unreachable.",
+        "good": "The server responded normally."
+    },
+
+    "ttl_hostname": {
+        "bad": "DNS information appears abnormal.",
+        "good": "DNS configuration appears stable."
+    }
+}
+
+def build_explanations(feats, brand_check, increasing, decreasing, is_phishing):
+    explanations = []
+
+    # Brand checks always have highest priority
+    if brand_check.get("impersonated"):
+        explanations.append({
+            "title": f"Brand Impersonation ({brand_check.get('brand', 'Unknown')})",
+            "description": "The domain appears to imitate a well-known brand.",
+            "score": 100
+        })
+
+    # Choose the appropriate SHAP signals
+    signals = increasing if is_phishing else decreasing
+
+    for feature, impact, value in signals:
+        if feature not in FEATURE_EXPLANATIONS:
+            continue
+
+        text = FEATURE_EXPLANATIONS[feature]
+
+        explanations.append({
+            "title": feature.replace("_", " ").title(),
+            "description": text["bad"] if is_phishing else text["good"],
+            "score": abs(round(impact, 2))
+        })
+
+        if len(explanations) >= 5:
+            break
+
+    if brand_check.get("official"):
+        explanations.append({
+            "title": "Official Brand Domain",
+            "description": "This domain matches an official, trusted brand.",
+            "score": 100
+        })
+
+    return explanations
+
 def predict_url(url: str) -> dict:
     """Predict if a URL is phishing and return risk metrics and feature importances."""
     resolved_url = resolve_redirects(url)
@@ -443,23 +528,59 @@ def predict_url(url: str) -> dict:
         is_phishing = True
         prob = max(prob, 0.95)
 
-    importances = model.feature_importances_
-    contributions = scaled[0] * importances
-    indices = np.argsort(np.abs(contributions))[::-1]
-    
-    reasons = []
-    for idx in indices[:5]:
-        feat_name = features_list[idx]
-        val = df_row[feat_name]
-        contrib = contributions[idx]
-        direction = "increases" if contrib > 0 else "decreases"
-        reasons.append({
-            "feature": feat_name,
-            "value": val,
-            "impact": float(contrib),
-            "direction": direction
-        })
-        
+    # SHAP gives per-instance, correctly-signed contributions (unlike
+    # model.feature_importances_, which is a global, unsigned measure and
+    # cannot tell you whether THIS input's value pushed the prediction
+    # toward phishing or away from it).
+    shap_values = shap_explainer.shap_values(scaled_df)
+    if isinstance(shap_values, list):
+        # Binary classifiers sometimes return [class_0_shap, class_1_shap]
+        contributions = shap_values[1][0]
+    else:
+        contributions = shap_values[0]
+
+    # Split ALL features into risk-increasing vs risk-decreasing groups.
+    # total_influence sums every feature in that direction (not just the
+    # top 5 shown), so the two totals reflect the full push/pull that
+    # produced the final score - useful even when a "safe" URL still has
+    # a couple of individually risk-increasing signals, or vice versa.
+    increasing = [
+        (features_list[i], float(contributions[i]), df_row[features_list[i]])
+        for i in range(len(contributions)) if contributions[i] > 0
+    ]
+    decreasing = [
+        (features_list[i], float(contributions[i]), df_row[features_list[i]])
+        for i in range(len(contributions)) if contributions[i] < 0
+    ]
+
+    increasing.sort(key=lambda x: x[1], reverse=True)   # largest positive first
+    decreasing.sort(key=lambda x: x[1])                  # most negative first
+
+    explanations = build_explanations(
+    feats,
+    brand_check,
+    increasing,
+    decreasing,
+    is_phishing
+    )
+
+    def _to_signal_list(items):
+        return [
+            {"feature": feat, "value": val, "impact": impact}
+            for feat, impact, val in items[:5]
+        ]
+
+    risk_signals = {
+        "increasing": {
+            "total_influence": sum(c[1] for c in increasing),
+            "signals": _to_signal_list(increasing)
+        },
+        "decreasing": {
+            "total_influence": sum(c[1] for c in decreasing),
+            "signals": _to_signal_list(decreasing)
+        }
+    }
+
     return {
         "url": url,
         "resolved_url": resolved_url,
@@ -467,5 +588,6 @@ def predict_url(url: str) -> dict:
         "risk_score_pct": round(prob * 100, 2),
         "brand_alert": brand_check,
         "features": {k: float(v) for k, v in feats.items() if k in features_list},
-        "top_features": reasons
+        "risk_signals": risk_signals,
+        "explanations": explanations
     }
