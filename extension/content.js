@@ -437,7 +437,7 @@
       verdictIcon.textContent  = '✓';
       verdictLabel.textContent = 'SAFE';
       riskFill.style.background = 'linear-gradient(90deg,#10b981,#34d399)';
-    } else if (risk < 70) {
+    } else if (risk < 50) {
       verdictBadge.classList.add('arcis-warn');
       verdictIcon.textContent  = '⚠';
       verdictLabel.textContent = 'SUSPICIOUS';

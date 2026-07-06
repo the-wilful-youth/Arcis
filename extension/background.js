@@ -43,7 +43,7 @@ function updateBadge(tabId, riskScore) {
     if (riskScore < 30) {
         // Safe: clear badge
         chrome.action.setBadgeText({ tabId: tabId, text: '' });
-    } else if (riskScore < 70) {
+    } else if (riskScore < 50) {
         // Suspicious
         chrome.action.setBadgeText({ tabId: tabId, text: 'WARN' });
         chrome.action.setBadgeBackgroundColor({ tabId: tabId, color: '#f59e0b' });

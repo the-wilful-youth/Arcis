@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 statusAlertEl.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
                 statusAlertEl.style.color = '#10b981';
                 riskScoreEl.style.color = '#10b981';
-            } else if (riskVal < 70) {
+            } else if (riskVal < 50) {
                 statusAlertEl.textContent = 'SUSPICIOUS LINK';
                 statusAlertEl.style.backgroundColor = 'rgba(245, 158, 11, 0.15)';
                 statusAlertEl.style.color = '#f59e0b';
@@ -359,7 +359,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 emailStatusAlertEl.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
                 emailStatusAlertEl.style.color = '#10b981';
                 emailRiskScoreEl.style.color = '#10b981';
-            } else if (riskVal < 70) {
+            } else if (riskVal < 50) {
                 emailStatusAlertEl.textContent = 'SUSPICIOUS SENDER';
                 emailStatusAlertEl.style.backgroundColor = 'rgba(245, 158, 11, 0.15)';
                 emailStatusAlertEl.style.color = '#f59e0b';
