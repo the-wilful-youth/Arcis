@@ -9,6 +9,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const API_BASE      = window.location.origin;
     const CIRCUMFERENCE = 2 * Math.PI * 80; // r=80 → 502.65
 
+    const COMPONENT_WEIGHTS = {
+        ml_classifier: 0.35,
+        url_analysis: 0.30,
+        sensitive_request: 0.15,
+        polite_request: 0.10,
+        short_email_risk: 0.10
+    };
+
     /* ── Bootstrap API key from backend (never hardcoded in client JS) ── */
     let _apiKey = localStorage.getItem('arcis_api_key') || '';
     if (!_apiKey) {
@@ -169,7 +177,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : 'This URL exhibits typical safe structural patterns.';
             iconSvg   = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5.5L4 7.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
             badgeIcon = iconSvg;
-        } else if (percent < 70) {
+        } else if (percent < 50) {
             color       = 'var(--warn)';
             badgeClass  = 'card__badge--warn';
             labelText   = 'SUSPICIOUS';
@@ -202,7 +210,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (percent < 30) {
             labelEl.style.background = 'rgba(111,207,151,0.14)';
             labelEl.style.color      = 'var(--safe)';
-        } else if (percent < 70) {
+        } else if (percent < 50) {
             labelEl.style.background = 'rgba(242,201,76,0.14)';
             labelEl.style.color      = 'var(--warn)';
         } else {
@@ -687,14 +695,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
 
             const rankedComponents = Object.entries(componentScores)
-                .sort((a, b) => b[1] - a[1]);
+                .sort((a, b) => {
+                    const weightA = COMPONENT_WEIGHTS[a[0]] || 0;
+                    const weightB = COMPONENT_WEIGHTS[b[0]] || 0;
+                    return (b[1] * weightB) - (a[1] * weightA);
+                });
 
             const rankingContainer = document.getElementById('email-risk-ranking');
             if (rankingContainer) {
                 rankingContainer.innerHTML = '';
                 rankedComponents.forEach(([key, score]) => {
                     const pct = Math.round(score * 100);
-                    const tone = pct >= 70 ? 'danger' : pct >= 30 ? 'warn' : 'safe';
+                    const tone = pct >= 50 ? 'danger' : pct >= 30 ? 'warn' : 'safe';
 
                     const row = document.createElement('div');
                     row.className = 'ranking-row';
