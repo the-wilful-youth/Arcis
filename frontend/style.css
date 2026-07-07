@@ -1523,7 +1523,28 @@ img, svg { display: block; }
     font-size: 12px;
     font-weight: 600;
     opacity: 0.75;
+.ranking-row__bar {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.08); /* neutral track background */
+    border-radius: 4px;
+    overflow: hidden;
 }
+.ranking-row__fill {
+    width: 0;
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s ease;
+}
+.ranking-row__fill--danger {
+    background: var(--danger);
+}
+.ranking-row__fill--warn {
+    background: var(--warn);
+}
+.ranking-row__fill--safe {
+    background: var(--safe);
+}
+.ranking-row__pct { text-align: right; color: rgba(255,255,255,0.6); font-variant-numeric: tabular-nums; }
 
 .ranking-group__total {
     font-size: 12px;

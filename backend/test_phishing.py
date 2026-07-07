@@ -12,7 +12,9 @@ from services.email_classifier import predict_sender_email
 url_test_cases = [
     {"url": "https://www.google.com", "expected": False},
     {"url": "https://www.paypa1.com/login", "expected": True},
-    {"url": "http://paypal.com.secure-update.com", "expected": True}
+    {"url": "http://paypal.com.secure-update.com", "expected": True},
+    {"url": "https://www.amazon.in/dp/B0CGH7WSVD?ref=cm_sw_r_cp_ud_dp_0W91RX903Y2EP9TTSV7T&ref_=cm_sw_r_cp_ud_dp_0W91RX903Y2EP9TTSV7T&social_share=cm_sw_r_cp_ud_dp_0W91RX903Y2EP9TTSV7T&th=1", "expected": False},
+    {"url": "https://amzn.in/d/0eMIa5GS", "expected": False}
 ]
 
 email_test_cases = [

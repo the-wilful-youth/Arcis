@@ -3,11 +3,35 @@
    UI interactions, API calls, history management
    ═══════════════════════════════════════════════════════════ */
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
 
     /* ── Constants ─────────────────────────────────────────── */
     const API_BASE      = window.location.origin;
     const CIRCUMFERENCE = 2 * Math.PI * 80; // r=80 → 502.65
+
+    const COMPONENT_WEIGHTS = {
+        ml_classifier: 0.35,
+        url_analysis: 0.30,
+        sensitive_request: 0.15,
+        polite_request: 0.10,
+        short_email_risk: 0.10
+    };
+
+    /* ── Bootstrap API key from backend (never hardcoded in client JS) ── */
+    let _apiKey = localStorage.getItem('arcis_api_key') || '';
+    if (!_apiKey) {
+        try {
+            const cfgRes = await fetch(`${API_BASE}/api/config`);
+            if (cfgRes.ok) {
+                const cfg = await cfgRes.json();
+                _apiKey = cfg.api_key || '';
+                if (_apiKey) localStorage.setItem('arcis_api_key', _apiKey);
+            }
+        } catch (_) {
+            // Backend unreachable — key stays empty, requests will show 403 prompt
+        }
+    }
+    const getApiKey = () => localStorage.getItem('arcis_api_key') || _apiKey;
 
     /* ── URL Scanner elements ──────────────────────────────── */
     const form          = document.getElementById('analyze-form');
@@ -84,8 +108,50 @@ document.addEventListener('DOMContentLoaded', () => {
         requestAnimationFrame(step);
     });
 
+    /* ── Crypto and HTML escape Helpers ────────────────────── */
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, "&amp;")
+                  .replace(/</g, "&lt;")
+                  .replace(/>/g, "&gt;")
+                  .replace(/"/g, "&quot;")
+                  .replace(/'/g, "&#039;");
+    }
+
+    function encryptData(text) {
+        const key = 42;
+        let result = "";
+        for (let i = 0; i < text.length; i++) {
+            result += String.fromCharCode(text.charCodeAt(i) ^ key);
+        }
+        return btoa(unescape(encodeURIComponent(result)));
+    }
+
+    function decryptData(ciphertext) {
+        if (!ciphertext) return "[]";
+        try {
+            const decoded = decodeURIComponent(escape(atob(ciphertext)));
+            const key = 42;
+            let result = "";
+            for (let i = 0; i < decoded.length; i++) {
+                result += String.fromCharCode(decoded.charCodeAt(i) ^ key);
+            }
+            return result;
+        } catch (e) {
+            return "[]";
+        }
+    }
+
     /* ── History state ─────────────────────────────────────── */
-    let scanHistory = JSON.parse(localStorage.getItem('arcis_scans')) || [];
+    let scanHistory = [];
+    try {
+        const rawHistory = localStorage.getItem('arcis_scans');
+        if (rawHistory) {
+            scanHistory = JSON.parse(decryptData(rawHistory));
+        }
+    } catch (e) {
+        console.error("Failed to load/decrypt history", e);
+    }
     renderHistory();
 
     /* ════════════════════════════════════════════════════════
@@ -94,14 +160,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Set the gauge ring stroke and all associated UI state.
-     * @param {HTMLElement} progressEl  - The <circle> fill element
-     * @param {HTMLElement} pctEl       - Percentage text node
-     * @param {HTMLElement} labelEl     - Label badge inside gauge
-     * @param {HTMLElement} badgeEl     - card__badge element
-     * @param {HTMLElement} descEl      - verdict text
-     * @param {HTMLElement} stripEl     - verdict strip container
-     * @param {number} percent
-     * @param {boolean} isEmail
      */
     function applyGaugeState(progressEl, pctEl, labelEl, badgeEl, descEl, stripEl, percent, isEmail = false) {
         const offset = CIRCUMFERENCE - (percent / 100) * CIRCUMFERENCE;
@@ -119,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 : 'This URL exhibits typical safe structural patterns.';
             iconSvg   = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5.5L4 7.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
             badgeIcon = iconSvg;
-        } else if (percent < 70) {
+        } else if (percent < 50) {
             color       = 'var(--warn)';
             badgeClass  = 'card__badge--warn';
             labelText   = 'SUSPICIOUS';
@@ -141,13 +199,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         progressEl.style.stroke = color;
 
-        // Gauge label pill — icon + text
-        labelEl.innerHTML = `${iconSvg} ${labelText}`;
+        // Gauge label pill — icon + text (using textContent safely for text, and clear/append for icon)
+        labelEl.textContent = '';
+        const tempSpan = document.createElement('span');
+        tempSpan.innerHTML = iconSvg;
+        labelEl.appendChild(tempSpan.firstChild);
+        labelEl.appendChild(document.createTextNode(` ${labelText}`));
+        
         labelEl.style.cssText = '';   // reset any inline from previous run
         if (percent < 30) {
             labelEl.style.background = 'rgba(111,207,151,0.14)';
             labelEl.style.color      = 'var(--safe)';
-        } else if (percent < 70) {
+        } else if (percent < 50) {
             labelEl.style.background = 'rgba(242,201,76,0.14)';
             labelEl.style.color      = 'var(--warn)';
         } else {
@@ -157,7 +220,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Card badge pill
         badgeEl.className = `card__badge ${badgeClass}`;
-        badgeEl.innerHTML = `${badgeIcon} ${labelText}`;
+        badgeEl.textContent = '';
+        const tempBadgeSpan = document.createElement('span');
+        tempBadgeSpan.innerHTML = badgeIcon;
+        badgeEl.appendChild(tempBadgeSpan.firstChild);
+        badgeEl.appendChild(document.createTextNode(` ${labelText}`));
 
         descEl.textContent = verdictText;
         stripEl.querySelector('.verdict-strip__icon').style.color = color;
@@ -276,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         });
         if (scanHistory.length > 20) scanHistory.pop();
-        localStorage.setItem('arcis_scans', JSON.stringify(scanHistory));
+        localStorage.setItem('arcis_scans', encryptData(JSON.stringify(scanHistory)));
         renderHistory();
     }
 
@@ -310,27 +377,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? `<svg width="8" height="8" viewBox="0 0 8 8" fill="none"><circle cx="4" cy="4" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M2.5 2.5l3 3M5.5 2.5l-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`
                 : `<svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1.5 4.5l2 2 3-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
-            const escapeHtml = (str) => {
-                if (!str) return '';
-                return str.replace(/&/g, "&amp;")
-                          .replace(/</g, "&lt;")
-                          .replace(/>/g, "&gt;")
-                          .replace(/"/g, "&quot;")
-                          .replace(/'/g, "&#039;");
-            };
-
             const escapedUrl = escapeHtml(item.url);
 
             el.innerHTML = `
                 <div class="history-item__top">
-                    <span class="history-pill ${pillClass}">${pillIcon} ${pillLabel} · ${item.risk}%</span>
+                    <span class="history-pill ${pillClass}"></span>
                     <span class="history-time">${item.timestamp}</span>
                 </div>
                 <div class="history-url" title="${escapedUrl}">${escapedUrl}</div>
             `;
+            
+            // Build the pill HTML contents safely
+            const pillSpan = el.querySelector('.history-pill');
+            const tempIconSpan = document.createElement('span');
+            tempIconSpan.innerHTML = pillIcon;
+            pillSpan.appendChild(tempIconSpan.firstChild);
+            pillSpan.appendChild(document.createTextNode(` ${pillLabel} · ${item.risk}%`));
 
             el.addEventListener('click', () => {
-                urlInput.value = item.url;
+                const cleanUrl = item.url.replace(/["'<>]/g, '');
+                urlInput.value = cleanUrl;
                 // Switch to URL tab if needed
                 activateTab('url-scanner-workspace');
                 form.dispatchEvent(new Event('submit'));
@@ -393,9 +459,20 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await fetch(`${API_BASE}/api/analyze/url`, {
                 method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-API-Key': getApiKey()
+                },
                 body:    JSON.stringify({ url })
             });
+
+            if (res.status === 403 || res.status === 401) {
+                const userKey = prompt("Unauthorized: Please enter a valid Arcis API Key:");
+                if (userKey) {
+                    localStorage.setItem('arcis_api_key', userKey);
+                }
+                throw new Error("Unauthorized: API Key has been updated. Please scan again.");
+            }
 
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
@@ -456,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
             /* Brand alert (always first if present) */
             if (data.brand_alert?.impersonated) {
                 indicatorsList.appendChild(makeIndicator(
-                    `Brand Impersonation: imitating <strong>${data.brand_alert.brand.toUpperCase()}</strong> (${data.brand_alert.type})`,
+                    `Brand Impersonation: imitating ${data.brand_alert.brand.toUpperCase()} (${data.brand_alert.type})`,
                     'brand', count++
                 ));
             }
@@ -597,6 +674,88 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 else {
                     desc = `${featureLabels[feat] || feat} was analyzed.`;
+            /* Friendly feature name helper */
+            function getFriendlyFeatureName(key) {
+                const customNames = {
+                    time_domain_activation: 'Domain Registration Age',
+                    time_domain_expiration: 'Domain Expiry Window',
+                    qty_ip_resolved:        'Resolved IP Addresses',
+                    time_response:          'Server Response Time',
+                    length_url:             'URL Length',
+                    domain_length:          'Domain Name Length',
+                    directory_length:       'Directory Path Length',
+                    file_length:            'File Name Length',
+                    params_length:          'Query Parameters Length',
+                    ttl_hostname:           'DNS Time-to-Live (TTL)',
+                    asn_ip:                 'Network Provider (ASN)',
+                    qty_nameservers:        'Nameservers Count',
+                    qty_mx_servers:         'Mail Servers Count',
+                    qty_vowels_domain:      'Vowel Count in Domain',
+                    tld_present_params:     'Domain Extensions in Parameters'
+                };
+
+                if (customNames[key]) {
+                    return customNames[key];
+                }
+
+                if (key.startsWith('qty_')) {
+                    const parts = key.split('_');
+                    if (parts.length >= 3) {
+                        const charMap = {
+                            dot: 'dot (.)',
+                            slash: 'slash (/)',
+                            hyphen: 'hyphen (-)',
+                            underline: 'underscore (_)',
+                            at: 'at symbol (@)',
+                            questionmark: 'question mark (?)',
+                            equal: 'equal sign (=)',
+                            and: 'ampersand (&)',
+                            exclamation: 'exclamation mark (!)',
+                            space: 'space',
+                            tilde: 'tilde (~)',
+                            comma: 'comma (,)',
+                            plus: 'plus sign (+)',
+                            asterisk: 'asterisk (*)',
+                            hashtag: 'hashtag (#)',
+                            dollar: 'dollar sign ($)',
+                            percent: 'percent sign (%)'
+                        };
+
+                        const locMap = {
+                            directory: 'directory path',
+                            file: 'file name',
+                            url: 'URL',
+                            domain: 'domain name',
+                            params: 'query parameters'
+                        };
+
+                        const charName = charMap[parts[1]] || parts[1];
+                        const locName = locMap[parts[2]] || parts[2];
+                        return `Count of "${charName}" in ${locName}`;
+                    }
+                }
+
+                return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            }
+
+            /* Top feature indicators */
+            (data.top_features || []).forEach((ind, i) => {
+                const isUp  = ind.direction === 'increases';
+                const tone  = isUp ? 'danger' : 'safe';
+                const feat  = ind.feature;
+                const val   = ind.value;
+                let desc = '';
+
+                if      (feat === 'time_domain_activation')  desc = val < 0 ? 'Domain registration age cannot be verified.' : `Domain is ${Math.round(val)} days old.`;
+                else if (feat === 'time_response')            desc = val < 0 ? 'Server is unresponsive or timed out.' : `Server responded in ${(val * 1000).toFixed(0)} ms.`;
+                else if (feat === 'qty_ip_resolved')          desc = val <= 0 ? 'Domain fails to resolve to any IP address.' : `Resolved to ${Math.round(val)} active IP address(es).`;
+                else if (feat === 'length_url')               desc = `URL is ${Math.round(val)} characters long — long URLs can mask phishing paths.`;
+                else if (feat === 'domain_length')            desc = `Domain name is ${Math.round(val)} characters.`;
+                else if (feat.startsWith('qty_slash_'))       desc = `${Math.round(val)} slash character(s) in URL path segments.`;
+                else if (feat.startsWith('qty_dot_'))         desc = `${Math.round(val)} dot(s) present in URL segments.`;
+                else {
+                    const friendlyName = getFriendlyFeatureName(feat);
+                    desc = `${friendlyName}: ${val} (${isUp ? 'increases' : 'decreases'} risk score).`;
                 }
 
                 indicatorsList.appendChild(makeIndicator(desc, tone, count++));
@@ -630,6 +789,33 @@ document.addEventListener('DOMContentLoaded', () => {
                         `${(riskSignals.decreasing?.total_influence ?? 0).toFixed(2)}`;
                 }
                 if (increaseTotalEl) increaseTotalEl.textContent = '—';
+            /* Ranked risk factor breakdown for URL analysis */
+            const urlRankingContainer = document.getElementById('url-risk-ranking');
+            if (urlRankingContainer) {
+                urlRankingContainer.innerHTML = '';
+
+                const rankedFeatures = [...(data.top_features || [])]
+                    .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
+
+                rankedFeatures.forEach(item => {
+                    const label = getFriendlyFeatureName(item.feature);
+                    const isRisky = item.direction === 'increases';
+                    // Normalize impact magnitude to a 0-100 bar width
+                    const maxImpact = Math.max(...rankedFeatures.map(f => Math.abs(f.impact)), 0.0001);
+                    const pct = Math.round((Math.abs(item.impact) / maxImpact) * 100);
+                    const tone = isRisky ? 'danger' : 'safe';
+
+                    const row = document.createElement('div');
+                    row.className = 'ranking-row';
+                    row.innerHTML = `
+                        <div class="ranking-row__label">${label}</div>
+                        <div class="ranking-row__bar">
+                            <div class="ranking-row__fill ranking-row__fill--${tone}" style="width:${pct}%"></div>
+                        </div>
+                        <div class="ranking-row__pct">${isRisky ? '+' : '−'}${pct}%</div>
+                    `;
+                    urlRankingContainer.appendChild(row);
+                });
             }
 
         } catch (err) {
@@ -655,7 +841,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await fetch(`${API_BASE}/api/analyze/email`, {
                 method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-API-Key': getApiKey()
+                },
                 body: JSON.stringify({
                     email:    sender,
                     reply_to: emailReplyInput.value.trim(),
@@ -666,6 +855,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     dmarc:    emailDmarcSelect.value
                 })
             });
+
+            if (res.status === 403 || res.status === 401) {
+                const userKey = prompt("Unauthorized: Please enter a valid Arcis API Key:");
+                if (userKey) {
+                    localStorage.setItem('arcis_api_key', userKey);
+                }
+                throw new Error("Unauthorized: API Key has been updated. Please scan again.");
+            }
 
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
@@ -726,6 +923,41 @@ document.addEventListener('DOMContentLoaded', () => {
                         `${(emailRiskSignals.decreasing?.total_influence ?? 0).toFixed(2)}`;
                 }
                 if (emailIncreaseTotalEl) emailIncreaseTotalEl.textContent = '—';
+            /* Ranked risk factor breakdown (from confidence_scorer) */
+            const componentScores = data.details?.component_scores || {};
+            const componentLabels = {
+                ml_classifier:     'ML Classifier',
+                url_analysis:      'Embedded URL Analysis',
+                sensitive_request: 'Sensitive Info Request',
+                polite_request:    'Generic Greeting Pattern',
+                short_email_risk:  'Short/Urgent Email Pattern'
+            };
+
+            const rankedComponents = Object.entries(componentScores)
+                .sort((a, b) => {
+                    const weightA = COMPONENT_WEIGHTS[a[0]] || 0;
+                    const weightB = COMPONENT_WEIGHTS[b[0]] || 0;
+                    return (b[1] * weightB) - (a[1] * weightA);
+                });
+
+            const rankingContainer = document.getElementById('email-risk-ranking');
+            if (rankingContainer) {
+                rankingContainer.innerHTML = '';
+                rankedComponents.forEach(([key, score]) => {
+                    const pct = Math.round(score * 100);
+                    const tone = pct >= 50 ? 'danger' : pct >= 30 ? 'warn' : 'safe';
+
+                    const row = document.createElement('div');
+                    row.className = 'ranking-row';
+                    row.innerHTML = `
+                        <div class="ranking-row__label">${componentLabels[key] || key}</div>
+                        <div class="ranking-row__bar">
+                            <div class="ranking-row__fill ranking-row__fill--${tone}" style="width:${pct}%"></div>
+                        </div>
+                        <div class="ranking-row__pct">${pct}%</div>
+                    `;
+                    rankingContainer.appendChild(row);
+                });
             }
 
             /* Risk indicators */

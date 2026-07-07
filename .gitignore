@@ -60,3 +60,8 @@ venv.bak/
 *.tar.gz
 *.crx
 
+# Model files & ML artifacts
+*.joblib
+*.onnx
+*.pkl
+

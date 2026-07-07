@@ -171,6 +171,33 @@ def test_graceful_degradation():
     return True
 
 
+def test_ml_safe_confidence_inversion():
+    """Test: ML Safe classification confidence inversion"""
+    print("\nTesting ML Safe classification confidence inversion...")
+    
+    # Legit email classified 'safe' with 95% confidence
+    results = {
+        'ml_classifier': {'classification': 'safe', 'confidence': 0.95},
+        'url_analysis': {},
+        'sensitive_request': {'risk_level': 'low'},
+        'polite_request': {'risk_level': 'low'},
+        'short_email_risk': {'risk_level': 'low'}
+    }
+    
+    result = score_analysis_confidence(results)
+    # ml_classifier contributes (1.0 - 0.95) * 0.35 = 0.05 * 0.35 = 0.0175
+    # url_analysis (empty dict {}) contributes 0.0 * 0.30 = 0.0
+    # sensitive_request contributes 0.0 * 0.15 = 0.0
+    # polite_request contributes 0.0 * 0.10 = 0.0
+    # short_email_risk contributes 0.0 * 0.10 = 0.0
+    # Overall score = 0.0175 / 1.0 = 0.0175
+    print(f"  Confidence: {result.overall_confidence:.4f}")
+    assert result.overall_confidence < 0.10
+    assert result.risk_level == 'low'
+    print("  ✓ PASS: ML safe confidence correctly inverted to represent low phishing risk")
+    return True
+
+
 def main():
     print("Confidence Scorer Test Suite")
     print("=" * 60)
@@ -178,6 +205,7 @@ def main():
     test_component_weight_assignment()
     test_confidence_score_normalization()
     test_graceful_degradation()
+    test_ml_safe_confidence_inversion()
     print("=" * 60)
     print("ALL TESTS PASSED")
 
