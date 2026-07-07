@@ -9,100 +9,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/svg+xml" href="icon.svg">
-    <style>
-        .report-container {
-            max-width: 1000px;
-            margin: 40px auto;
-            padding: 0 24px;
-        }
-        .report-header {
-            margin-bottom: 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .report-grid {
-            display: grid;
-            grid-template-columns: 1.2fr 2fr;
-            gap: 24px;
-        }
-        .report-meta-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-top: 16px;
-        }
-        .report-meta-item {
-            background: rgba(255,255,255,0.02);
-            border: 1px solid var(--border);
-            border-radius: var(--r-md);
-            padding: 12px;
-        }
-        .report-meta-label {
-            font-size: 11px;
-            color: var(--text-3);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 4px;
-        }
-        .report-meta-val {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text-1);
-            word-break: break-all;
-        }
-        .link-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 12px;
-        }
-        .link-table th {
-            text-align: left;
-            padding: 10px 12px;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-3);
-            border-bottom: 1px solid var(--border-strong);
-        }
-        .link-table td {
-            padding: 12px;
-            font-size: 13px;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-2);
-        }
-        .link-url {
-            font-family: 'JetBrains Mono', monospace;
-            max-width: 300px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .badge-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-        .badge-status--safe { background: rgba(16,185,129,0.12); color: var(--safe); }
-        .badge-status--warn { background: rgba(245,158,11,0.12); color: var(--warn); }
-        .badge-status--danger { background: rgba(239,68,68,0.12); color: var(--danger); }
-        
-        .no-report-card {
-            text-align: center;
-            padding: 64px 32px;
-            margin-top: 60px;
-        }
-        .no-report-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
-            opacity: 0.4;
-        }
-    </style>
 </head>
 <body>
 
@@ -115,7 +21,7 @@
         <div class="bg-noise"></div>
     </div>
 
-    <div class="app-shell" style="height: auto; min-height: 100vh;">
+    <div class="app-shell app-shell--report">
 
         <!-- ═══════════════════════════ NAV ═══════════════════════════ -->
         <header class="topbar">
@@ -127,7 +33,7 @@
                 <span class="brand-badge">THREAT INTELLIGENCE</span>
             </div>
             <div class="topbar__actions">
-                <a href="/" class="btn-upgrade" style="text-decoration: none;">Launch Dashboard</a>
+                <a href="/" class="btn-upgrade btn-upgrade--report">Launch Dashboard</a>
             </div>
         </header>
 
@@ -135,42 +41,42 @@
         <main id="main-content" class="report-container">
             <!-- Loading state by default -->
             <div class="card no-report-card" id="state-loading">
-                <div class="spinner" style="margin: 0 auto 16px auto; width: 32px; height: 32px;"></div>
+                <div class="spinner spinner--large"></div>
                 <h2>Parsing Threat Report...</h2>
-                <p style="color: var(--text-3); margin-top: 8px;">Decompressing and parsing payload data.</p>
+                <p class="report-card-text">Decompressing and parsing payload data.</p>
             </div>
 
             <!-- Error state -->
             <div class="card no-report-card hidden" id="state-error">
                 <div class="no-report-icon">⚠️</div>
                 <h2>No Report Loaded</h2>
-                <p style="color: var(--text-3); margin-top: 8px; max-width: 400px; margin-left: auto; margin-right: auto;">Please execute a scan in the browser extension and click "See Full Report" to load details.</p>
-                <a href="/" class="btn-clear" style="margin-top: 24px; display: inline-flex; text-decoration: none;">Go to Dashboard</a>
+                <p class="report-card-text report-card-text--center">Please execute a scan in the browser extension and click "See Full Report" to load details.</p>
+                <a href="/" class="btn-clear btn-clear--action">Go to Dashboard</a>
             </div>
 
             <!-- Loaded Report View -->
             <div class="hidden" id="report-view">
                 <div class="report-header">
                     <div>
-                        <div class="scanner-hero__eyebrow" style="margin-bottom: 8px;">
+                        <div class="scanner-hero__eyebrow scanner-hero__eyebrow--report">
                             <span class="eyebrow-dot eyebrow-dot--violet"></span>
                             Gmail Threat Analysis Report
                         </div>
-                        <h1 class="scanner-hero__title" style="text-align: left; font-size: 32px; margin: 0;">Threat Details</h1>
+                        <h1 class="scanner-hero__title scanner-hero__title--report">Threat Details</h1>
                     </div>
                 </div>
 
                 <div class="report-grid">
                     <!-- Left Column: Gauge and Key Metrics -->
                     <div class="flex flex-col gap-4">
-                        <div class="card card--gauge" style="padding: 32px 24px;">
-                            <div class="card__header" style="justify-content: center; margin-bottom: 16px;">
-                                <div class="card__badge" id="report-verdict-badge">ANALYZING</div>
+                        <div class="card card--gauge report-card--gauge">
+                            <div class="card__header report-card__header">
+                                <div class="card__badge report-badge" id="report-verdict-badge">ANALYZING</div>
                             </div>
-                            <div class="gauge-ring-wrap" style="margin: 0 auto 16px auto;">
+                            <div class="gauge-ring-wrap report-gauge-wrap">
                                 <svg class="gauge-ring" width="200" height="200" viewBox="0 0 200 200">
                                     <circle class="gauge-ring__track" cx="100" cy="100" r="80" />
-                                    <circle id="report-risk-progress" class="gauge-ring__fill" cx="100" cy="100" r="80" style="stroke-dasharray: 502.65; stroke-dashoffset: 502.65;" />
+                                    <circle id="report-risk-progress" class="gauge-ring__fill" cx="100" cy="100" r="80" />
                                 </svg>
                                 <div class="gauge-ring__inner">
                                     <span id="report-risk-percentage" class="gauge-pct">0%</span>
@@ -185,7 +91,7 @@
                                 <h3 class="card__title">Scraped Metadata</h3>
                             </div>
                             <div class="report-meta-grid">
-                                <div class="report-meta-item" style="grid-column: span 2;">
+                                <div class="report-meta-item report-meta-item--span-2">
                                     <div class="report-meta-label">Subject</div>
                                     <div class="report-meta-val" id="report-subject">—</div>
                                 </div>
@@ -208,7 +114,7 @@
                             <div class="card__header">
                                 <h3 class="card__title">Detected Signals</h3>
                             </div>
-                            <div id="report-signals-list" class="indicator-feed" style="max-height: 250px; overflow-y: auto;">
+                            <div id="report-signals-list" class="indicator-feed report-signals-list">
                                 <!-- Signals inject here -->
                             </div>
                         </div>
@@ -218,7 +124,7 @@
                             <div class="card__header">
                                 <h3 class="card__title">Scanned Hyperlinks</h3>
                             </div>
-                            <div style="overflow-x: auto; width: 100%;">
+                            <div class="table-scroll">
                                 <table class="link-table">
                                     <thead>
                                         <tr>
@@ -239,8 +145,8 @@
                             <div class="card__header">
                                 <h3 class="card__title">Body Preview</h3>
                             </div>
-                            <div style="background: rgba(0,0,0,0.2); padding: 14px; border-radius: var(--r-md); border: 1px solid var(--border); max-height: 150px; overflow-y: auto;">
-                                <p id="report-body" style="font-size: 13px; color: var(--text-2); white-space: pre-wrap; line-height: 1.5; font-family: inherit;">—</p>
+                            <div class="report-body-panel">
+                                <p id="report-body" class="report-body">—</p>
                             </div>
                         </div>
                     </div>
@@ -291,33 +197,22 @@
                 const risk = report.risk_score_pct || 0;
                 riskPct.textContent = `${risk.toFixed(1)}%`;
                 const offset = CIRCUMFERENCE - (risk / 100) * CIRCUMFERENCE;
-                riskProgress.style.strokeDashoffset = offset;
+                riskProgress.setAttribute('stroke-dashoffset', offset);
 
-                let color, badgeText, statusClass;
+                let statusClass;
                 if (risk < 30) {
-                    color = 'var(--safe)';
-                    badgeText = 'SAFE';
                     statusClass = 'badge-status--safe';
-                    verdictBadge.style.background = 'rgba(16,185,129,0.12)';
-                    verdictBadge.style.color = 'var(--safe)';
                 } else if (risk < 70) {
-                    color = 'var(--warn)';
-                    badgeText = 'SUSPICIOUS';
                     statusClass = 'badge-status--warn';
-                    verdictBadge.style.background = 'rgba(245,158,11,0.12)';
-                    verdictBadge.style.color = 'var(--warn)';
                 } else {
-                    color = 'var(--danger)';
-                    badgeText = 'DANGEROUS';
                     statusClass = 'badge-status--danger';
-                    verdictBadge.style.background = 'rgba(239,68,68,0.12)';
-                    verdictBadge.style.color = 'var(--danger)';
                 }
 
+                verdictBadge.className = `badge-status ${statusClass}`;
                 verdictBadge.textContent = badgeText;
-                riskProgress.style.stroke = color;
+                riskProgress.setAttribute('stroke', risk < 30 ? 'var(--safe)' : risk < 70 ? 'var(--warn)' : 'var(--danger)');
                 riskLabel.textContent = badgeText;
-                riskLabel.style.color = color;
+                riskLabel.className = `gauge-label gauge-label--${risk < 30 ? 'safe' : risk < 70 ? 'warn' : 'danger'}`;
 
                 // Render Signals
                 signalsList.innerHTML = '';
@@ -326,8 +221,7 @@
                     const div = document.createElement('div');
                     div.className = 'indicator-item';
                     const dot = document.createElement('span');
-                    dot.className = 'indicator-dot';
-                    dot.style.background = 'var(--safe)';
+                    dot.className = 'indicator-dot indicator-dot--safe';
                     const text = document.createElement('span');
                     text.className = 'indicator-text';
                     text.textContent = 'No significant threats or anomalies detected.';
@@ -335,15 +229,12 @@
                     div.appendChild(text);
                     signalsList.appendChild(div);
                 } else {
-                    reasons.forEach((reason, i) => {
+                    reasons.forEach((reason) => {
                         const isDanger = reason.includes('🚨') || reason.includes('failed') || reason.includes('suspicious') || reason.includes('overdue') || reason.includes('suspend');
-                        const dotColor = isDanger ? 'var(--danger)' : 'var(--warn)';
                         const div = document.createElement('div');
                         div.className = 'indicator-item';
-                        div.style.animationDelay = `${i * 50}ms`;
                         const dot = document.createElement('span');
-                        dot.className = 'indicator-dot';
-                        dot.style.background = dotColor;
+                        dot.className = `indicator-dot ${isDanger ? 'indicator-dot--danger' : 'indicator-dot--warn'}`;
                         const text = document.createElement('span');
                         text.className = 'indicator-text';
                         text.textContent = reason;
@@ -357,7 +248,13 @@
                 linksTbody.innerHTML = '';
                 const links = report.links || [];
                 if (links.length === 0) {
-                    linksTbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-3);">No links extracted from the email.</td></tr>`;
+                    const emptyRow = document.createElement('tr');
+                    const emptyCell = document.createElement('td');
+                    emptyCell.setAttribute('colspan', '3');
+                    emptyCell.className = 'table-empty-row';
+                    emptyCell.textContent = 'No links extracted from the email.';
+                    emptyRow.appendChild(emptyCell);
+                    linksTbody.appendChild(emptyRow);
                 } else {
                     links.forEach(link => {
                         const tr = document.createElement('tr');
@@ -386,11 +283,11 @@
                         
                         if (resolvedUrl && resolvedUrl !== linkUrl) {
                             const divRedirect = document.createElement('div');
-                            divRedirect.style.cssText = 'font-size: 11px; opacity: 0.7; color: var(--text-3); word-break: break-all; margin-top: 4px;';
+                            divRedirect.className = 'redirect-info';
                             divRedirect.appendChild(document.createTextNode('↳ Redirects to: '));
                             
                             const spanRedirect = document.createElement('span');
-                            spanRedirect.style.cssText = "font-family: 'JetBrains Mono', monospace; font-weight: 500;";
+                            spanRedirect.className = 'redirect-url';
                             spanRedirect.textContent = resolvedUrl;
                             
                             divRedirect.appendChild(spanRedirect);
@@ -400,7 +297,7 @@
                         
                         const tdScore = document.createElement('td');
                         const spanScore = document.createElement('span');
-                        spanScore.style.cssText = "font-family: 'JetBrains Mono', monospace; font-weight: 600;";
+                        spanScore.className = 'mono-value';
                         spanScore.textContent = `${score.toFixed(1)}%`;
                         tdScore.appendChild(spanScore);
                         tr.appendChild(tdScore);

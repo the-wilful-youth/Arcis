@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     /* ── Init gauges ───────────────────────────────────────── */
     [riskProgress, emailRiskProgress].forEach(el => {
-        el.style.strokeDasharray  = `${CIRCUMFERENCE} ${CIRCUMFERENCE}`;
+        el.style.strokeDasharray = `${CIRCUMFERENCE} ${CIRCUMFERENCE}`;
         el.style.strokeDashoffset = CIRCUMFERENCE;
     });
 
@@ -206,18 +206,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         tempSpan.innerHTML = iconSvg;
         labelEl.appendChild(tempSpan.firstChild);
         labelEl.appendChild(document.createTextNode(` ${labelText}`));
-        
-        labelEl.style.cssText = '';   // reset any inline from previous run
-        if (percent < 30) {
-            labelEl.style.background = 'rgba(111,207,151,0.14)';
-            labelEl.style.color      = 'var(--safe)';
-        } else if (percent < 50) {
-            labelEl.style.background = 'rgba(242,201,76,0.14)';
-            labelEl.style.color      = 'var(--warn)';
-        } else {
-            labelEl.style.background = 'rgba(235,87,87,0.14)';
-            labelEl.style.color      = 'var(--danger)';
-        }
+        labelEl.className = `gauge-label gauge-label--${percent < 30 ? 'safe' : percent < 50 ? 'warn' : 'danger'}`;
 
         // Card badge pill
         badgeEl.className = `card__badge ${badgeClass}`;
@@ -228,7 +217,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         badgeEl.appendChild(document.createTextNode(` ${labelText}`));
 
         descEl.textContent = verdictText;
-        stripEl.querySelector('.verdict-strip__icon').style.color = color;
+        const iconEl = stripEl.querySelector('.verdict-strip__icon');
+        if (iconEl) {
+            iconEl.className = `verdict-strip__icon verdict-strip__icon--${percent < 30 ? 'safe' : percent < 50 ? 'warn' : 'danger'}`;
+        }
     }
 
     /**
@@ -241,21 +233,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     : tone === 'danger' ? 'indicator-item--danger'
                     : '';
         item.className = `indicator-item${itemToneClass ? ' ' + itemToneClass : ''}`;
-        item.style.animationDelay = `${index * 60}ms`;
+        const delayClass = `indicator-delay-${Math.min(index, 20)}`;
+        item.classList.add(delayClass);
 
         const dotClass = tone === 'safe' ? 'indicator-dot--safe'
                        : tone === 'warn' ? 'indicator-dot--warn'
+                       : tone === 'brand' ? 'indicator-dot--brand'
                        : 'indicator-dot--danger';
-
-        const dotColor = tone === 'safe'  ? 'var(--safe)'
-                       : tone === 'warn'  ? 'var(--warn)'
-                       : tone === 'brand' ? 'var(--danger)'
-                       : 'var(--danger)';
 
         const dotSpan = document.createElement('span');
         dotSpan.className = `indicator-dot ${dotClass}`;
-        dotSpan.style.background = dotColor;
-        dotSpan.style.marginTop = '5px';
 
         const textSpan = document.createElement('span');
         textSpan.className = 'indicator-text';
@@ -305,12 +292,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         groupedSignals.forEach(item => {
             const pct = Math.round((item.impact / maxImpact) * 100);
+            const normalizedPct = Math.max(0, Math.min(100, pct));
+            const widthClass = `w-${Math.round(normalizedPct / 5) * 5}`;
             const row = document.createElement("div");
             row.className = "ranking-row";
             row.innerHTML = `
                 <div class="ranking-row__label">${item.label}</div>
                 <div class="ranking-row__bar">
-                    <div class="ranking-row__fill" style="width:${pct}%"></div>
+                    <div class="ranking-row__fill ${widthClass}"></div>
                 </div>
                 <div class="ranking-row__pct">${signPrefix}${pct}%</div>
             `;
@@ -676,8 +665,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 else {
                     desc = `${featureLabels[feat] || feat} was analyzed.`;
                 }
+                indicatorsList.appendChild(makeIndicator(desc, tone, count++));
             });
-
             /* Friendly feature name helper */
             function getFriendlyFeatureName(key) {
                 const customNames = {
@@ -742,29 +731,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
             }
 
-            /* Top feature indicators */
-            (data.top_features || []).forEach((ind, i) => {
-                const isUp  = ind.direction === 'increases';
-                const tone  = isUp ? 'danger' : 'safe';
-                const feat  = ind.feature;
-                const val   = ind.value;
-                let desc = '';
-
-                if      (feat === 'time_domain_activation')  desc = val < 0 ? 'Domain registration age cannot be verified.' : `Domain is ${Math.round(val)} days old.`;
-                else if (feat === 'time_response')            desc = val < 0 ? 'Server is unresponsive or timed out.' : `Server responded in ${(val * 1000).toFixed(0)} ms.`;
-                else if (feat === 'qty_ip_resolved')          desc = val <= 0 ? 'Domain fails to resolve to any IP address.' : `Resolved to ${Math.round(val)} active IP address(es).`;
-                else if (feat === 'length_url')               desc = `URL is ${Math.round(val)} characters long — long URLs can mask phishing paths.`;
-                else if (feat === 'domain_length')            desc = `Domain name is ${Math.round(val)} characters.`;
-                else if (feat.startsWith('qty_slash_'))       desc = `${Math.round(val)} slash character(s) in URL path segments.`;
-                else if (feat.startsWith('qty_dot_'))         desc = `${Math.round(val)} dot(s) present in URL segments.`;
-                else {
-                    const friendlyName = getFriendlyFeatureName(feat);
-                    desc = `${friendlyName}: ${val} (${isUp ? 'increases' : 'decreases'} risk score).`;
-                }
-
-                indicatorsList.appendChild(makeIndicator(desc, tone, count++));
-            });
-
             indicatorCount.textContent = `${count} signal${count !== 1 ? 's' : ''}`;
 
             /* Ranked risk factor breakdown for URL analysis — split by direction */
@@ -815,7 +781,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     row.innerHTML = `
                         <div class="ranking-row__label">${label}</div>
                         <div class="ranking-row__bar">
-                            <div class="ranking-row__fill ranking-row__fill--${tone}" style="width:${pct}%"></div>
+                            <div class="ranking-row__fill ranking-row__fill--${tone} fill-${pct}"></div>
                         </div>
                         <div class="ranking-row__pct">${isRisky ? '+' : '−'}${pct}%</div>
                     `;
@@ -958,7 +924,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     row.innerHTML = `
                         <div class="ranking-row__label">${componentLabels[key] || key}</div>
                         <div class="ranking-row__bar">
-                            <div class="ranking-row__fill ranking-row__fill--${tone}" style="width:${pct}%"></div>
+                            <div class="ranking-row__fill ranking-row__fill--${tone} fill-${pct}"></div>
                         </div>
                         <div class="ranking-row__pct">${pct}%</div>
                     `;
@@ -994,18 +960,8 @@ document.addEventListener('DOMContentLoaded', async () => {
        ════════════════════════════════════════════════════════ */
 
     function showError(message) {
-        // Non-blocking inline toast instead of blocking alert
         const toast = document.createElement('div');
-        toast.style.cssText = `
-            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-            background: rgba(5, 18, 18, 0.96); border: 1px solid rgba(244,63,94,0.35);
-            color: #fca5a5; font-size: 13px; font-weight: 500;
-            padding: 12px 20px; border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-            z-index: 9999; max-width: 480px; text-align: center;
-            backdrop-filter: blur(16px);
-            animation: fade-up 0.3s cubic-bezier(0.16,1,0.3,1) forwards;
-        `;
+        toast.className = 'toast';
         toast.textContent = message;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 6000);
