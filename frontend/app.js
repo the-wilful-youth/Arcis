@@ -665,6 +665,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 else {
                     desc = `${featureLabels[feat] || feat} was analyzed.`;
                 }
+                indicatorsList.appendChild(makeIndicator(desc, tone, count++));
             });
             /* Friendly feature name helper */
             function getFriendlyFeatureName(key) {
@@ -729,30 +730,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
             }
-
-            /* Top feature indicators */
-            (data.top_features || []).forEach((ind, i) => {
-                const isUp  = ind.direction === 'increases';
-                const tone  = isUp ? 'danger' : 'safe';
-                const feat  = ind.feature;
-                const val   = ind.value;
-                let desc = '';
-
-                if      (feat === 'time_domain_activation')  desc = val < 0 ? 'Domain registration age cannot be verified.' : `Domain is ${Math.round(val)} days old.`;
-                else if (feat === 'time_response')            desc = val < 0 ? 'Server is unresponsive or timed out.' : `Server responded in ${(val * 1000).toFixed(0)} ms.`;
-                else if (feat === 'qty_ip_resolved')          desc = val <= 0 ? 'Domain fails to resolve to any IP address.' : `Resolved to ${Math.round(val)} active IP address(es).`;
-                else if (feat === 'length_url')               desc = `URL is ${Math.round(val)} characters long — long URLs can mask phishing paths.`;
-                else if (feat === 'domain_length')            desc = `Domain name is ${Math.round(val)} characters.`;
-                else if (feat.startsWith('qty_slash_'))       desc = `${Math.round(val)} slash character(s) in URL path segments.`;
-                else if (feat.startsWith('qty_dot_'))         desc = `${Math.round(val)} dot(s) present in URL segments.`;
-                else {
-                    const friendlyName = getFriendlyFeatureName(feat);
-                    desc = `${friendlyName}: ${val} (${isUp ? 'increases' : 'decreases'} risk score).`;
-                }
-
-                indicatorsList.appendChild(makeIndicator(desc, tone, count++));
-            });
-
+            
             indicatorCount.textContent = `${count} signal${count !== 1 ? 's' : ''}`;
 
             /* Ranked risk factor breakdown for URL analysis — split by direction */
