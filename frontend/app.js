@@ -674,6 +674,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 else {
                     desc = `${featureLabels[feat] || feat} was analyzed.`;
+                }
+            });
+
             /* Friendly feature name helper */
             function getFriendlyFeatureName(key) {
                 const customNames = {
@@ -789,6 +792,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         `${(riskSignals.decreasing?.total_influence ?? 0).toFixed(2)}`;
                 }
                 if (increaseTotalEl) increaseTotalEl.textContent = '—';
+            }
             /* Ranked risk factor breakdown for URL analysis */
             const urlRankingContainer = document.getElementById('url-risk-ranking');
             if (urlRankingContainer) {
@@ -923,6 +927,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         `${(emailRiskSignals.decreasing?.total_influence ?? 0).toFixed(2)}`;
                 }
                 if (emailIncreaseTotalEl) emailIncreaseTotalEl.textContent = '—';
+            }
             /* Ranked risk factor breakdown (from confidence_scorer) */
             const componentScores = data.details?.component_scores || {};
             const componentLabels = {
