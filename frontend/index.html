@@ -200,15 +200,15 @@
                                     <div class="card__section">
                                         <h3 class="card__title">Risk Factor Ranking</h3>
 
-                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-                                            <span style="font-size:12px; font-weight:600; opacity:0.75;">Risk-Increasing Factors</span>
-                                            <span id="url-ranking-increase-total" style="font-size:12px; font-weight:700; color:var(--danger);">—</span>
+                                        <div class="ranking-summary-row">
+                                            <span class="ranking-summary-label">Risk-Increasing Factors</span>
+                                            <span id="url-ranking-increase-total" class="ranking-summary-value ranking-summary-value--danger">—</span>
                                         </div>
                                         <div id="url-risk-ranking-increasing" class="ranking-list"></div>
 
-                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
-                                            <span style="font-size:12px; font-weight:600; opacity:0.75;">Risk-Decreasing Factors</span>
-                                            <span id="url-ranking-decrease-total" style="font-size:12px; font-weight:700; color:var(--safe);">—</span>
+                                        <div class="ranking-summary-row ranking-summary-row--spaced">
+                                            <span class="ranking-summary-label">Risk-Decreasing Factors</span>
+                                            <span id="url-ranking-decrease-total" class="ranking-summary-value ranking-summary-value--safe">—</span>
                                         </div>
                                         <div id="url-risk-ranking-decreasing" class="ranking-list ranking-list--safe"></div>
                                     </div>
@@ -379,15 +379,15 @@
                                     <div class="card__section">
                                         <h3 class="card__title">Risk Factor Ranking</h3>
 
-                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-                                            <span style="font-size:12px; font-weight:600; opacity:0.75;">Risk-Increasing Factors</span>
-                                            <span id="email-ranking-increase-total" style="font-size:12px; font-weight:700; color:var(--danger);">—</span>
+                                        <div class="ranking-summary-row">
+                                            <span class="ranking-summary-label">Risk-Increasing Factors</span>
+                                            <span id="email-ranking-increase-total" class="ranking-summary-value ranking-summary-value--danger">—</span>
                                         </div>
                                         <div id="email-risk-ranking-increasing" class="ranking-list"></div>
 
-                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
-                                            <span style="font-size:12px; font-weight:600; opacity:0.75;">Risk-Decreasing Factors</span>
-                                            <span id="email-ranking-decrease-total" style="font-size:12px; font-weight:700; color:var(--safe);">—</span>
+                                        <div class="ranking-summary-row ranking-summary-row--spaced">
+                                            <span class="ranking-summary-label">Risk-Decreasing Factors</span>
+                                            <span id="email-ranking-decrease-total" class="ranking-summary-value ranking-summary-value--safe">—</span>
                                         </div>
                                         <div id="email-risk-ranking-decreasing" class="ranking-list ranking-list--safe"></div>
                                     </div>
@@ -430,7 +430,7 @@
         <footer class="app-footer">
             <span class="footer__engine">Real-Time Threat Intelligence & Analysis</span>
             <span class="footer__divider" aria-hidden="true">·</span>
-            <a id="meet-team-btn" class="footer__link-btn" href="/team" style="text-decoration: none;">Meet the Team</a>
+            <a id="meet-team-btn" class="footer__link-btn no-underline" href="/team">Meet the Team</a>
             <span class="footer__divider" aria-hidden="true">·</span>
             <span class="footer__copy">&copy; 2026 Team Arcis</span>
         </footer>

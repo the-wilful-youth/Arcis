@@ -9,52 +9,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/svg+xml" href="icon.svg">
-    <style>
-        .team-page-shell {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 40px 24px;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .team-page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 60px;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 20px;
-        }
-        .back-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border);
-            color: var(--text-1);
-            padding: 10px 20px;
-            border-radius: var(--r-lg);
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            text-decoration: none;
-            transition: all 0.2s ease;
-        }
-        .back-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.2);
-            transform: translateX(-2px);
-        }
-        .team-page-footer {
-            margin-top: auto;
-            padding-top: 60px;
-            text-align: center;
-            font-size: 12px;
-            color: var(--text-2);
-            border-top: 1px solid var(--border);
-        }
-    </style>
 </head>
 <body>
 
@@ -69,7 +23,7 @@
 
     <div class="team-page-shell">
         <header class="team-page-header">
-            <div class="topbar__brand" style="padding: 0;">
+            <div class="topbar__brand topbar__brand--clean">
                 <div class="brand-logo">
                     <img src="icon.svg" width="28" height="28" alt="Arcis logo">
                 </div>
@@ -83,13 +37,13 @@
         </header>
 
         <main>
-            <div class="scanner-hero" style="text-align: center; margin-bottom: 48px;">
-                <div class="scanner-hero__eyebrow" style="justify-content: center;">
-                    <span class="eyebrow-dot" aria-hidden="true" style="background: var(--blue);"></span>
+            <div class="scanner-hero scanner-hero--centered">
+                <div class="scanner-hero__eyebrow scanner-hero__eyebrow--center">
+                    <span class="eyebrow-dot eyebrow-dot--blue" aria-hidden="true"></span>
                     Arcis Core Engineering
                 </div>
                 <h1 class="scanner-hero__title">Meet the <span class="gradient-text">Developers</span></h1>
-                <p class="scanner-hero__sub" style="margin: 16px auto 0;">The core engineering and security research team powering the Arcis threat intelligence suite.</p>
+                <p class="scanner-hero__sub">The core engineering and security research team powering the Arcis threat intelligence suite.</p>
             </div>
 
             <div class="team-grid">
